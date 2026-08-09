@@ -68,7 +68,7 @@ async function searchArcod(q: string, token: string | null = null) {
     try {
         const headers: any = { Accept: 'application/json', Origin: 'https://arcod.xyz', Referer: 'https://arcod.xyz/', 'User-Agent': UA };
         if (token) headers['Authorization'] = 'Bearer ' + token;
-        const r = await fetch(`${ARCOD_API_BASE}/get-music?q=${encodeURIComponent(q)}&offset=0`, { headers, signal: AbortSignal.timeout(10000) });
+        const r = await fetch(`${ARCOD_API_BASE}/get-music?q=${encodeURIComponent(q)}&offset=0`, { headers, signal: AbortSignal.timeout(4000) });
         if (!r.ok) return [];
         const d: any = await r.json();
         return d?.data?.tracks?.items || d?.tracks?.items || [];
@@ -78,7 +78,7 @@ async function searchArcod(q: string, token: string | null = null) {
 async function arcodFastStream(trackId: string, stashKey: string) {
     if (!stashKey) return null;
     try {
-        const r = await fetch(`${ARCOD_STASH_BASE}/v2/stash/stream/${trackId}?quality=27`, { headers: { Accept: 'application/json', Origin: 'https://arcod.xyz', Referer: 'https://arcod.xyz/', 'User-Agent': UA, 'X-Stash-Key': stashKey }, signal: AbortSignal.timeout(15000) });
+        const r = await fetch(`${ARCOD_STASH_BASE}/v2/stash/stream/${trackId}?quality=27`, { headers: { Accept: 'application/json', Origin: 'https://arcod.xyz', Referer: 'https://arcod.xyz/', 'User-Agent': UA, 'X-Stash-Key': stashKey }, signal: AbortSignal.timeout(5000) });
         if (!r.ok) return null;
         const body = (await r.text()).trim();
         if (body.startsWith('http')) return body;
@@ -96,7 +96,7 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
         const r = await fetch(`${ARCOD_API_BASE}/v2/downloads`, {
             method: 'POST', headers: h,
             body: JSON.stringify({ albumId: '0000000000000', trackId, albumTitle: title || 'Single', artistName: artist || 'Artist', artistId: '0', coverUrl: '', releaseDate: '', tracksCount: 1, quality: 27, format: 'FLAC', bitrate: 320, embedLyrics: false, lyricsMode: 'none', downloadBooklet: false, attachCover: false, zipName: '{track} - {name}', trackName: '{track} - {name}' }),
-            signal: AbortSignal.timeout(15000),
+            signal: AbortSignal.timeout(6000),
         });
         if (!r.ok) return null;
         const d: any = await r.json();
@@ -110,7 +110,7 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
 
         for (let i = 0; i < 8; i++) {
             await new Promise(r => setTimeout(r, 800));
-            const p = await fetch(`${ARCOD_API_BASE}/v2/downloads/${jobId}`, { headers: ph, signal: AbortSignal.timeout(8000) });
+            const p = await fetch(`${ARCOD_API_BASE}/v2/downloads/${jobId}`, { headers: ph, signal: AbortSignal.timeout(5000) });
             if (!p.ok) continue;
             const pd: any = await p.json();
             if (pd?.downloadUrl || pd?.url) return pd.downloadUrl || pd.url;
@@ -119,7 +119,7 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
                     method: 'POST',
                     headers: ph,
                     body: JSON.stringify({}),
-                    signal: AbortSignal.timeout(8000)
+                    signal: AbortSignal.timeout(5000)
                 });
                 if (u.ok) {
                     const ud: any = await u.json();
@@ -204,6 +204,8 @@ async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
 }
 
 export async function POST(request: Request) {
+    let arcodError: string | null = null;
+
     try {
         const body = await request.json();
         const { track, preferSource, disableLossless: bodyDisableLossless } = body;
@@ -219,52 +221,58 @@ export async function POST(request: Request) {
 
         // If Lossless is NOT disabled, try ARCOD first
         if (!disableLossless) {
-            // 1. If track already has ARCOD ID, try direct streams first
-            const aid = track.arcod_id || (track.source === 'arcod' ? track.source_id : null);
-            if (aid) {
-                const u = await arcodFastStream(aid, stashKey) || await arcodJobStream(aid, track.title, track.artist, userToken);
-                if (u) return Response.json({ url: u, source: 'arcod', quality: track.quality || '24-Bit FLAC (Qobuz via ARCOD)' });
-            }
-
-            // 2. Search ARCOD catalog and match (try multiple query variations)
-            const session = await getArcodSession();
-            const activeToken = userToken || session?.accessToken || null;
-
-            let results: any[] = [];
-            const cleanQuery = `${track.title || ''} ${track.artist || ''}`.replace(/\s+/g, ' ').trim();
-            const simpleQuery = `${(track.title || '').split('(')[0].trim()} ${(track.artist || '').split(',')[0].trim()}`.trim();
-
-            results = await searchArcod(cleanQuery, activeToken);
-            if (!results.length && simpleQuery !== cleanQuery) {
-                results = await searchArcod(simpleQuery, activeToken);
-            }
-            if (!results.length) {
-                // Try just the title
-                results = await searchArcod((track.title || '').split('(')[0].split('-')[0].trim(), activeToken);
-            }
-
-            if (results.length) {
-                const nqt = norm(track.title), nqa = norm(track.artist);
-                let best: any = null, bestS = 0.25; // lowered threshold
-                for (const c of results) {
-                    const ct = c.title || c.name || '', ca = (c.artist?.name || c.performer?.name || '');
-                    const s = jaccard(nqt, norm(ct)) * 0.6 + jaccard(nqa, norm(ca)) * 0.4;
-                    if (s > bestS) { bestS = s; best = c; }
+            try {
+                // 1. If track already has ARCOD ID, try direct streams first
+                const aid = track.arcod_id || (track.source === 'arcod' ? track.source_id : null);
+                if (aid) {
+                    const u = await arcodFastStream(aid, stashKey) || await arcodJobStream(aid, track.title, track.artist, userToken);
+                    if (u) return Response.json({ url: u, source: 'arcod', quality: track.quality || '24-Bit FLAC (Qobuz via ARCOD)' });
                 }
-                if (best) {
-                    const mid = String(best.id || best.track_id || '');
-                    const u = await arcodFastStream(mid, stashKey) || await arcodJobStream(mid, best.title || track.title, best.performer?.name || track.artist, activeToken);
-                    if (u) return Response.json({ url: u, source: 'arcod', quality: '24-Bit FLAC (Qobuz via ARCOD)' });
+
+                // 2. Search ARCOD catalog and match (try multiple query variations)
+                const session = await getArcodSession();
+                const activeToken = userToken || session?.accessToken || null;
+
+                let results: any[] = [];
+                const cleanQuery = `${track.title || ''} ${track.artist || ''}`.replace(/\s+/g, ' ').trim();
+                const simpleQuery = `${(track.title || '').split('(')[0].trim()} ${(track.artist || '').split(',')[0].trim()}`.trim();
+
+                results = await searchArcod(cleanQuery, activeToken);
+                if (!results.length && simpleQuery !== cleanQuery) {
+                    results = await searchArcod(simpleQuery, activeToken);
                 }
+                if (!results.length) {
+                    results = await searchArcod((track.title || '').split('(')[0].split('-')[0].trim(), activeToken);
+                }
+
+                if (results.length) {
+                    const nqt = norm(track.title), nqa = norm(track.artist);
+                    let best: any = null, bestS = 0.25;
+                    for (const c of results) {
+                        const ct = c.title || c.name || '', ca = (c.artist?.name || c.performer?.name || '');
+                        const s = jaccard(nqt, norm(ct)) * 0.6 + jaccard(nqa, norm(ca)) * 0.4;
+                        if (s > bestS) { bestS = s; best = c; }
+                    }
+                    if (best) {
+                        const mid = String(best.id || best.track_id || '');
+                        const u = await arcodFastStream(mid, stashKey) || await arcodJobStream(mid, best.title || track.title, best.performer?.name || track.artist, activeToken);
+                        if (u) return Response.json({ url: u, source: 'arcod', quality: '24-Bit FLAC (Qobuz via ARCOD)' });
+                    }
+                }
+            } catch (e: any) {
+                arcodError = e.message || 'ARCOD error';
+                console.warn('[Stream] ARCOD block threw, falling back to YouTube:', arcodError);
             }
         }
 
-        // 3. YouTube (Primary when lossless is off, or fallback when lossless track not found)
+        // 3. YouTube fallback
         const yt = (await youtubeStream(track)) || (await fetchOnlineYouTubeStream(track));
         if (yt) return Response.json({ url: yt, source: 'youtube', quality: 'AAC/Opus (YouTube Music)' });
 
-        return Response.json({ error: 'No stream found' }, { status: 404 });
+        return Response.json({
+            error: arcodError ? `Lossless failed (${arcodError}), YouTube fallback also failed` : 'No stream found'
+        }, { status: 404 });
     } catch (e: any) {
-        return Response.json({ error: 'Stream resolution failed' }, { status: 500 });
+        return Response.json({ error: 'Stream resolution failed: ' + (e.message || 'unknown') }, { status: 500 });
     }
 }
