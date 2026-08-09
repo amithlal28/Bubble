@@ -43,6 +43,7 @@ if (typeof stash === 'undefined') {
                     spotify_token_expiry: localStorage.getItem('creds_spotify_token_expiry'),
                     spotify_client_id: localStorage.getItem('creds_spotify_client_id'),
                     spotify_client_secret: localStorage.getItem('creds_spotify_client_secret'),
+                    spotify_cookie: localStorage.getItem('creds_spotify_cookie'),
                     arcod_token: localStorage.getItem('creds_arcod_token'),
                     youtube_token: localStorage.getItem('creds_youtube_cookie')
                 })

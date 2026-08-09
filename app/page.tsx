@@ -23,6 +23,7 @@ export default function HomePage() {
                             if (data.spotify_access_token) localStorage.setItem('creds_spotify_token', data.spotify_access_token);
                             if (data.spotify_refresh_token) localStorage.setItem('creds_spotify_refresh_token', data.spotify_refresh_token);
                             if (data.spotify_token_expiry) localStorage.setItem('creds_spotify_token_expiry', data.spotify_token_expiry);
+                            if (data.spotify_cookie) localStorage.setItem('creds_spotify_cookie', data.spotify_cookie);
                             if (data.spotify_client_id) localStorage.setItem('creds_spotify_client_id', data.spotify_client_id);
                             if (data.spotify_client_secret) localStorage.setItem('creds_spotify_client_secret', data.spotify_client_secret);
                             if (data.arcod_token) localStorage.setItem('creds_arcod_token', data.arcod_token);

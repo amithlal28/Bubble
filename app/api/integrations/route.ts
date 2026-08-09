@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     if (body.spotify_token_expiry !== undefined) updateData.spotify_token_expiry = body.spotify_token_expiry;
     if (body.spotify_client_id !== undefined) updateData.spotify_client_id = body.spotify_client_id;
     if (body.spotify_client_secret !== undefined) updateData.spotify_client_secret = body.spotify_client_secret;
+    if (body.spotify_cookie !== undefined) updateData.spotify_cookie = body.spotify_cookie;
     if (body.arcod_token !== undefined) updateData.arcod_token = body.arcod_token;
     if (body.youtube_token !== undefined) updateData.youtube_token = body.youtube_token;
 
