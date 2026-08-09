@@ -68,7 +68,7 @@ async function searchArcod(q: string, token: string | null = null) {
     try {
         const headers: any = { Accept: 'application/json', Origin: 'https://arcod.xyz', Referer: 'https://arcod.xyz/', 'User-Agent': UA };
         if (token) headers['Authorization'] = 'Bearer ' + token;
-        const r = await fetch(`${ARCOD_API_BASE}/get-music?q=${encodeURIComponent(q)}&offset=0`, { headers, signal: AbortSignal.timeout(4000) });
+        const r = await fetch(`${ARCOD_API_BASE}/get-music?q=${encodeURIComponent(q)}&offset=0`, { headers, signal: AbortSignal.timeout(10000) });
         if (!r.ok) return [];
         const d: any = await r.json();
         return d?.data?.tracks?.items || d?.tracks?.items || [];
@@ -78,7 +78,7 @@ async function searchArcod(q: string, token: string | null = null) {
 async function arcodFastStream(trackId: string, stashKey: string) {
     if (!stashKey) return null;
     try {
-        const r = await fetch(`${ARCOD_STASH_BASE}/v2/stash/stream/${trackId}?quality=27`, { headers: { Accept: 'application/json', Origin: 'https://arcod.xyz', Referer: 'https://arcod.xyz/', 'User-Agent': UA, 'X-Stash-Key': stashKey }, signal: AbortSignal.timeout(5000) });
+        const r = await fetch(`${ARCOD_STASH_BASE}/v2/stash/stream/${trackId}?quality=27`, { headers: { Accept: 'application/json', Origin: 'https://arcod.xyz', Referer: 'https://arcod.xyz/', 'User-Agent': UA, 'X-Stash-Key': stashKey }, signal: AbortSignal.timeout(15000) });
         if (!r.ok) return null;
         const body = (await r.text()).trim();
         if (body.startsWith('http')) return body;
@@ -96,7 +96,7 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
         const r = await fetch(`${ARCOD_API_BASE}/v2/downloads`, {
             method: 'POST', headers: h,
             body: JSON.stringify({ albumId: '0000000000000', trackId, albumTitle: title || 'Single', artistName: artist || 'Artist', artistId: '0', coverUrl: '', releaseDate: '', tracksCount: 1, quality: 27, format: 'FLAC', bitrate: 320, embedLyrics: false, lyricsMode: 'none', downloadBooklet: false, attachCover: false, zipName: '{track} - {name}', trackName: '{track} - {name}' }),
-            signal: AbortSignal.timeout(6000),
+            signal: AbortSignal.timeout(20000),
         });
         if (!r.ok) return null;
         const d: any = await r.json();
@@ -110,7 +110,7 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
 
         for (let i = 0; i < 8; i++) {
             await new Promise(r => setTimeout(r, 800));
-            const p = await fetch(`${ARCOD_API_BASE}/v2/downloads/${jobId}`, { headers: ph, signal: AbortSignal.timeout(5000) });
+            const p = await fetch(`${ARCOD_API_BASE}/v2/downloads/${jobId}`, { headers: ph, signal: AbortSignal.timeout(10000) });
             if (!p.ok) continue;
             const pd: any = await p.json();
             if (pd?.downloadUrl || pd?.url) return pd.downloadUrl || pd.url;
@@ -119,7 +119,7 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
                     method: 'POST',
                     headers: ph,
                     body: JSON.stringify({}),
-                    signal: AbortSignal.timeout(5000)
+                    signal: AbortSignal.timeout(10000)
                 });
                 if (u.ok) {
                     const ud: any = await u.json();
@@ -195,7 +195,11 @@ async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
                 const audios = vd.audioStreams || [];
                 if (audios.length) {
                     const best = audios.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-                    if (best?.url) return best.url;
+                    if (best?.url) {
+                        // Piped returns relative URLs like /videoplayback?... — resolve to absolute
+                        const audioUrl = best.url.startsWith('http') ? best.url : new URL(best.url, base).href;
+                        return audioUrl;
+                    }
                 }
             } catch (e) { }
         }
