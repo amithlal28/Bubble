@@ -104,17 +104,11 @@ window.BubbleAPI = (() => {
 
         /** Add track(s) to a playlist */
         async addTrack(playlistId, track, position) {
-            if (isElectron) {
-                await BubbleDB.upsertTrack(track);
-                const existing = await BubbleDB.getPlaylistTracks(playlistId);
-                const pos = position ?? existing.length;
-                return BubbleDB.addTrackToPlaylist(playlistId, track.id, pos);
-            }
-            // If track is actually an array, use batch mode
+            if (isElectron) return BubbleDB.addTrackToPlaylist(playlistId, track, position);
             if (Array.isArray(track)) {
                 return fetchJSON(`${API_BASE}/playlists/${playlistId}/tracks`, {
                     method: 'POST',
-                    body: { tracks: track.map((t, i) => ({ ...t, position: i })) }
+                    body: { tracks: track }
                 });
             }
             return fetchJSON(`${API_BASE}/playlists/${playlistId}/tracks`, {
@@ -210,10 +204,8 @@ window.BubbleAPI = (() => {
 
         /** Like many tracks in one request (used by sync for speed). */
         async likeBatch(tracks) {
-            if (isElectron) return null;
-            const user = getWebUser();
-            if (!user || !Array.isArray(tracks) || tracks.length === 0) return null;
-            return fetchMaybe(`${API_BASE}/liked`, {
+            if (isElectron) return BubbleDB.batchSaveTracks(tracks);
+            return fetchJSON(`${API_BASE}/liked`, {
                 method: 'POST',
                 body: { tracks: tracks.map(t => ({ ...t, track_id: t.track_id || t.id })) }
             });
