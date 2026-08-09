@@ -72,8 +72,7 @@ BubbleRouter.register('settings', async (container) => {
               ${arcodConnected ? `
                 <button class="btn btn-secondary btn-sm" onclick="stash.arcod.disconnect().then(() => { BubbleApp.toast('ARCOD disconnected', 'info'); BubbleRouter.navigate('settings', {force:true}); })">Disconnect</button>
               ` : `
-                <button class="btn btn-primary btn-sm" onclick="stash.arcod.login().then(res => { if(res && res.success) { BubbleApp.toast('ARCOD connected successfully!', 'success'); BubbleRouter.navigate('settings', {force:true}); } })">Connect In-App</button>
-                <button class="btn btn-secondary btn-sm" onclick="stash.app.openExternal('https://arcod.xyz/')">Open in Browser</button>
+                <button class="btn btn-secondary btn-sm" onclick="stash.app.openExternal('https://arcod.xyz/')">Get Token from ARCOD</button>
                 <button class="btn btn-ghost btn-sm" onclick="document.getElementById('arcod-token-panel').classList.toggle('visible')">Paste Token</button>
               `}
               <button class="btn btn-ghost btn-sm" title="${stashKeyConfigured ? 'Fast stream route is configured' : 'Optional private key for the fast stream route'}" onclick="document.getElementById('arcod-stashkey-panel').classList.toggle('visible')">${stashKeyConfigured ? '✓ Stash Key' : 'Stash Key'}</button>
