@@ -15,7 +15,7 @@ async function testFresh(refreshToken, trackId) {
     });
     const refreshed = await res.json();
     const token = refreshed.access_token;
-    console.log('Got fresh token:', token.substring(0, 30) + '...');
+    console.log('Got fresh token:', token ? (token.substring(0, 30) + '...') : 'undefined');
 
     const h = {
         'Content-Type': 'application/json',
