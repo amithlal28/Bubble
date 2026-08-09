@@ -3,6 +3,29 @@
    Initializes UI, player bar controls, hotkeys, tray, and data
    ═══════════════════════════════════════════════════════════════════ */
 
+window.deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.deferredPrompt = e;
+    // Show install button if it exists
+    const installBtn = document.getElementById('btn-pwa-install');
+    if (installBtn) installBtn.style.display = 'inline-flex';
+});
+
+window.installPWA = async () => {
+    if (window.deferredPrompt) {
+        window.deferredPrompt.prompt();
+        const { outcome } = await window.deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            window.deferredPrompt = null;
+            const installBtn = document.getElementById('btn-pwa-install');
+            if (installBtn) installBtn.style.display = 'none';
+        }
+    } else {
+        BubbleApp.toast("Web app is already installed or installation is not supported by your browser.", "info");
+    }
+};
+
 window.BubbleApp = (() => {
   const isElectron = typeof stash !== 'undefined' && !stash._isPolyfill;
 

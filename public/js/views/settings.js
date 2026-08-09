@@ -342,6 +342,32 @@ BubbleRouter.register('settings', async (container) => {
         </div>
       </div>
 
+      <!-- ═══ APP & ACCOUNT SYSTEM ═══ -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          App & Account System
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-row" id="btn-pwa-install" style="display: none; cursor: pointer;" onclick="window.installPWA()">
+            <div class="settings-row-info">
+              <div class="settings-row-label">Install Web App</div>
+              <div class="settings-row-desc">Install Bubble as a standalone app on your device</div>
+            </div>
+            <button class="btn btn-primary btn-sm">Install</button>
+          </div>
+
+          <div class="settings-row" style="border-top: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer;" onclick="deleteBubbleAccount()">
+            <div class="settings-row-info">
+              <div class="settings-row-label" style="color: #ef4444;">Delete Bubble Account</div>
+              <div class="settings-row-desc" style="color: rgba(239, 68, 68, 0.7);">Permanently delete your account and all synchronized data</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">Delete</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ ABOUT SECTION ═══ -->
       <div class="settings-section">
         <div class="about-card">
@@ -393,3 +419,29 @@ function onEQSliderChange(idx, val) {
   const presetSelect = document.getElementById('eq-preset-select');
   if (presetSelect) presetSelect.value = 'custom';
 }
+
+window.deleteBubbleAccount = async () => {
+    const confirm1 = confirm("Are you sure you want to permanently delete your Bubble account? This action cannot be undone.");
+    if (!confirm1) return;
+    const confirm2 = confirm("Please confirm again. ALL your synced library data and integrations will be permanently wiped.");
+    if (!confirm2) return;
+
+    BubbleApp.toast("Initiating account deletion...", "info");
+    try {
+        const res = await fetch('/api/auth/delete-account', { method: 'DELETE' });
+        if (res.ok) {
+            BubbleApp.toast("Account deleted successfully.", "success");
+            if (window.BubbleAPI && window.BubbleAPI.auth) {
+                await window.BubbleAPI.auth.signOut();
+            } else {
+                localStorage.removeItem('supabase.auth.token');
+            }
+            window.location.reload();
+        } else {
+            const data = await res.json().catch(() => ({}));
+            BubbleApp.toast("Failed to delete account: " + (data.error || "Unknown error"), "error");
+        }
+    } catch (e) {
+        BubbleApp.toast("Network error while deleting account.", "error");
+    }
+};
