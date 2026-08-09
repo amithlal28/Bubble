@@ -9,13 +9,13 @@ BubbleRouter.register('settings', async (container) => {
   await BubbleSpotify.checkConnection();
   const spConnected = BubbleSpotify.isConnected();
   const ytConnected = BubbleYouTube.isConnected();
-  const arcodStatus = await stash.arcod.getStatus().catch(() => ({ connected: false }));
+  const arcodStatus = (typeof stash !== 'undefined' ? await stash.arcod.getStatus().catch(() => ({ connected: false })) : { connected: false });
   const arcodConnected = arcodStatus.connected;
   const stashKeyConfigured = arcodStatus.stashKeyConfigured;
   const disableLossless = settings['disable_lossless'] === 'true' || settings['prefer_source'] === 'youtube';
   const allowYouTubeStream = settings['allow_youtube_stream'] !== 'false';
   const downloadDir = settings['download_dir'] || 'Music/Stash';
-  const appVersion = await stash.app.getVersion().catch(() => '1.0.0');
+  const appVersion = (typeof stash !== 'undefined' ? await stash.app.getVersion().catch(() => '1.0.0') : '1.0.0-web');
   const currentEQPreset = settings['eq_preset'] || 'flat';
   const currentEQBands = JSON.parse(settings['eq_bands'] || '[0,0,0,0,0]');
   const crossfade = settings['crossfade_duration'] || '0';
@@ -70,9 +70,9 @@ BubbleRouter.register('settings', async (container) => {
 
             <div style="display:flex;align-items:center;gap:8px">
               ${arcodConnected ? `
-                <button class="btn btn-secondary btn-sm" onclick="stash.arcod.disconnect().then(() => { BubbleApp.toast('ARCOD disconnected', 'info'); BubbleRouter.navigate('settings', {force:true}); })">Disconnect</button>
+                <button class="btn btn-secondary btn-sm" onclick="(window.stash||stash).arcod.disconnect().then(() => { BubbleApp.toast('ARCOD disconnected', 'info'); BubbleRouter.navigate('settings', {force:true}); })">Disconnect</button>
               ` : `
-                <button class="btn btn-secondary btn-sm" onclick="stash.app.openExternal('https://arcod.xyz/')">Get Token from ARCOD</button>
+                <button class="btn btn-secondary btn-sm" onclick="(window.stash||stash).app.openExternal('https://arcod.xyz/')">Get Token from ARCOD</button>
                 <button class="btn btn-ghost btn-sm" onclick="document.getElementById('arcod-token-panel').classList.toggle('visible')">Paste Token</button>
               `}
               <button class="btn btn-ghost btn-sm" title="${stashKeyConfigured ? 'Fast stream route is configured' : 'Optional private key for the fast stream route'}" onclick="document.getElementById('arcod-stashkey-panel').classList.toggle('visible')">${stashKeyConfigured ? '✓ Stash Key' : 'Stash Key'}</button>
@@ -86,7 +86,7 @@ BubbleRouter.register('settings', async (container) => {
             </div>
             <input type="text" id="arcod-stashkey-input" class="cookie-textarea" style="min-height:auto;padding:10px 12px" placeholder="Paste your X-Stash-Key...">
             <div class="cookie-actions">
-              <button class="btn btn-primary btn-sm" onclick="stash.arcod.setStashKey(document.getElementById('arcod-stashkey-input').value).then(() => { BubbleApp.toast('Stash key saved', 'success'); BubbleRouter.navigate('settings', {force:true}); })">Save Key</button>
+              <button class="btn btn-primary btn-sm" onclick="(window.stash||stash).arcod.setStashKey(document.getElementById('arcod-stashkey-input').value).then(() => { BubbleApp.toast('Stash key saved', 'success'); BubbleRouter.navigate('settings', {force:true}); })">Save Key</button>
               <button class="btn btn-ghost btn-sm" onclick="document.getElementById('arcod-stashkey-panel').classList.remove('visible')">Cancel</button>
             </div>
           </div>
@@ -94,14 +94,14 @@ BubbleRouter.register('settings', async (container) => {
           <div id="arcod-token-panel" class="cookie-input-wrapper card" style="margin-top:var(--space-md)">
             <div style="font-size:var(--font-xs);color:var(--text-secondary);margin-bottom:10px;line-height:1.6">
               <strong>Quick Browser Sign-In:</strong><br>
-              1. Click <a href="#" style="color:var(--accent)" onclick="stash.app.openExternal('https://arcod.xyz/'); return false;">Open in Browser</a> and sign in with Google or Email.<br>
+              1. Click <a href="#" style="color:var(--accent)" onclick="(window.stash||stash).app.openExternal('https://arcod.xyz/'); return false;">Open in Browser</a> and sign in with Google or Email.<br>
               2. Press <code>F12</code> (or right-click → Inspect) → click the <strong>Console</strong> tab.<br>
               3. Paste this command and press Enter: <code style="user-select:all;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">copy(localStorage.getItem('sb-fnlghyzwyoklfqyhqlav-auth-token'))</code><br>
               4. Paste the copied token below and click <strong>Save & Connect</strong>:
             </div>
             <textarea id="arcod-token-input" class="cookie-textarea" placeholder='Paste your copied token here...'></textarea>
             <div class="cookie-actions">
-              <button class="btn btn-primary btn-sm" onclick="stash.arcod.saveToken(document.getElementById('arcod-token-input').value).then(res => { if(res.success) { BubbleApp.toast('ARCOD token saved!', 'success'); BubbleRouter.navigate('settings', {force:true}); } else { BubbleApp.toast(res.error || 'Invalid token', 'error'); } })">Save & Connect</button>
+              <button class="btn btn-primary btn-sm" onclick="(window.stash||stash).arcod.saveToken(document.getElementById('arcod-token-input').value).then(res => { if(res.success) { BubbleApp.toast('ARCOD token saved!', 'success'); BubbleRouter.navigate('settings', {force:true}); } else { BubbleApp.toast(res.error || 'Invalid token', 'error'); } })">Save & Connect</button>
               <button class="btn btn-ghost btn-sm" onclick="document.getElementById('arcod-token-panel').classList.remove('visible')">Cancel</button>
             </div>
           </div>
@@ -387,7 +387,7 @@ BubbleRouter.register('settings', async (container) => {
 });
 
 async function changeDownloadFolder() {
-  const chosen = await stash.fs.selectFolder();
+  const chosen = (typeof stash !== 'undefined') ? await stash.fs.selectFolder().catch(() => null) : null;
   if (chosen) {
     await BubbleSettings.set('download_dir', chosen);
     const el = document.getElementById('setting-folder-display');

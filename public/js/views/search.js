@@ -96,21 +96,21 @@ async function doSearch(query, tab) {
 
   try {
     if (tab === 'tracks') {
-      const results = await stash.music.search(query);
+      const results = (typeof stash !== 'undefined') ? await stash.music.search(query).catch(() => []) : [];
       window._bubbleSearchCache.results = { tracks: results || [] };
     } else if (tab === 'albums') {
       // Primary: ARCOD get-music endpoint returns full album data (no auth needed)
       let albums = [];
-      try { albums = await stash.arcod.searchAlbums(query, 30); } catch (e) { /* fallback */ }
+      try { albums = (typeof stash !== 'undefined') ? await stash.arcod.searchAlbums(query, 30).catch(() => []) : []; } catch (e) { /* fallback */ }
       // Fallback: Group ARCOD track results by album name
       if (!albums || albums.length === 0) {
-        const tracks = await stash.music.search(query);
+        const tracks = (typeof stash !== 'undefined') ? await stash.music.search(query).catch(() => []) : [];
         albums = groupTracksIntoAlbums(tracks || []);
       }
       window._bubbleSearchCache.results = { albums: albums };
     } else if (tab === 'artists') {
       // Primary: ARCOD track search grouped by artist
-      const tracks = await stash.music.search(query);
+      const tracks = (typeof stash !== 'undefined') ? await stash.music.search(query).catch(() => []) : [];
       const artists = groupTracksIntoArtists(tracks || []);
       window._bubbleSearchCache.results = { artists: artists };
     }

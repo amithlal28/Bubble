@@ -25,7 +25,7 @@ BubbleRouter.register('album', async (container, params) => {
     const query = artistName ? `${artistName} ${albumName}` : albumName;
     let tracks = [];
     try {
-        const results = await stash.music.search(query);
+        const results = (typeof stash !== 'undefined') ? await stash.music.search(query).catch(() => []) : [];
         tracks = (results || []).filter(t =>
             t.album && t.album.toLowerCase() === albumName.toLowerCase()
         );

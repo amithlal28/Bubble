@@ -4,8 +4,15 @@
    Loaded BEFORE other JS modules so they don't crash when accessing stash.
    ═══════════════════════════════════════════════════════════════════ */
 
-if (typeof stash === 'undefined') {
-    // Helper to extract session data
+;(function() {
+  // Always define stash on web.  The Electron app provides its own `stash`
+  // and does NOT load this polyfill, so it is safe to overwrite anything
+  // that may have leaked into the global scope (e.g. from a bundler).
+  if (typeof stash !== 'undefined') {
+    console.warn('[Bubble Web] Global "stash" already defined — overwriting with polyfill');
+  }
+
+  // Helper to extract session data
     function getStoredArcodSession() {
         try {
             const raw = localStorage.getItem('creds_arcod_session');
@@ -529,7 +536,7 @@ if (typeof stash === 'undefined') {
         });
     }
 
-    window.stash = {
+    var stashPolyfill = {
         _isPolyfill: true,
 
         /* ── Window controls (no-op on web) ──────────────────────────── */
@@ -1068,7 +1075,8 @@ if (typeof stash === 'undefined') {
                 return [];
             },
         },
-    };
-}
+  };
 
-console.log('[Bubble Web] Stash polyfill ready. ARCOD In-Web Auth enabled.');
+  window.stash = stashPolyfill;
+  console.log('[Bubble Web] Stash polyfill ready. ARCOD In-Web Auth enabled.');
+})();

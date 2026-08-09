@@ -23,7 +23,7 @@ BubbleRouter.register('artist', async (container, params) => {
     // Search ARCOD for this artist's tracks
     let tracks = [];
     try {
-        tracks = await stash.music.search(artistName);
+        tracks = (typeof stash !== 'undefined') ? await stash.music.search(artistName).catch(() => []) : [];
         tracks = tracks || [];
     } catch (e) {
         tracks = [];
