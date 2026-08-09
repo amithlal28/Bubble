@@ -34,7 +34,12 @@ export default function RootLayout({
                 <link rel="stylesheet" href="/css/library.css" />
                 <link rel="stylesheet" href="/css/settings.css" />
                 <link rel="stylesheet" href="/css/web.css" />
+            </head>
+            <body>
+                {children}
                 {/* Scripts loaded with defer — execute in order after HTML parse */}
+                {/* Moved to end of <body> because Next.js server components may strip
+                    <script> tags from <head>.  defer works identically here. */}
                 {/* Order MUST match Electron index.html: router BEFORE views */}
                 <script src="/js/polyfill.js" defer></script>
                 <script src="/js/vendor/howler.min.js" defer></script>
@@ -63,8 +68,7 @@ export default function RootLayout({
                 <script src="/js/views/artist.js" defer></script>
                 <script src="/js/views/sync.js" defer></script>
                 <script src="/js/app.js" defer></script>
-            </head>
-            <body>{children}</body>
+            </body>
         </html>
     );
 }
