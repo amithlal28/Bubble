@@ -600,7 +600,14 @@ export async function spotifyGetPlaylists(authInput: any, limit = 50, offset = 0
             const res = await spotifyFetch(`https://api.spotify.com/v1/me/playlists?limit=${limit}&offset=${offset}`, {
                 headers: { 'Authorization': `Bearer ${userToken}`, 'Accept': 'application/json' }
             });
+
             if (res.status === 200 && res.data && Array.isArray(res.data.items)) {
+                if (res.data.items.length === 0 && offset === 0) {
+                    throw new Error(`DEBUG 0 PLAYLISTS: ${JSON.stringify({
+                        total: res.data.total,
+                        scopes: res.headers['x-oauth-scopes'] || res.headers['X-OAuth-Scopes']
+                    })}`);
+                }
                 return res.data.items.filter(Boolean).map((p: any) => ({
                     id: `sp_${p.id}`,
                     name: p.name || 'Untitled Playlist',
@@ -774,6 +781,14 @@ export async function spotifyGetLikedSongs(authInput: any, limit = 50, offset = 
                 { headers: { 'Authorization': `Bearer ${userToken}`, 'Accept': 'application/json' } }
             );
             if (res.status === 200 && res.data && Array.isArray(res.data.items)) {
+                if (res.data.items.length === 0 && offset === 0) {
+                    throw new Error(`DEBUG 0 TRACKS: ${JSON.stringify({
+                        total: res.data.total,
+                        next: res.data.next,
+                        scopes: res.headers['x-oauth-scopes'] || res.headers['X-OAuth-Scopes'],
+                        body: res.data
+                    })}`);
+                }
                 return res.data.items
                     .filter((item: any) => item && item.track)
                     .map((item: any) => {
