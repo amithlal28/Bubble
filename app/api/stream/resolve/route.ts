@@ -11,27 +11,44 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 let _arcodSession: any = null;
 let _arcodPromise: any = null;
 
-// Initial static fallback from environment variables for security
-const DEFAULT_REFRESH_TOKEN = process.env.ARCOD_REFRESH_TOKEN || '';
+// No env-var dependency — each user brings their own ARCOD token via the
+// x-arcod-token header (stored in localStorage by the polyfill).  The
+// server-side session below is only a zero-config anonymous fallback so
+// that search & streaming work even before a user connects their account.
 
 async function getArcodSession() {
     if (_arcodSession && _arcodSession.expiresAt > Date.now() + 60000) return _arcodSession;
     if (_arcodPromise) return _arcodPromise;
     _arcodPromise = (async () => {
+        // If we already have a refresh token from a previous signup, reuse it
+        if (_arcodSession?.refreshToken) {
+            try {
+                const res = await fetch(`${ARCOD_SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': ARCOD_ANON_KEY },
+                    body: JSON.stringify({ refresh_token: _arcodSession.refreshToken }),
+                });
+                if (res.ok) {
+                    const d: any = await res.json();
+                    _arcodSession = { accessToken: d.access_token, refreshToken: d.refresh_token, expiresAt: Date.now() + (d.expires_in || 3600) * 1000 };
+                    return _arcodSession;
+                }
+            } catch (e: any) { /* fall through to signup */ }
+        }
+
+        // Auto-signup a new anonymous session (zero-config, no env vars needed)
         try {
-            const rt = _arcodSession?.refreshToken || DEFAULT_REFRESH_TOKEN;
-            const res = await fetch(`${ARCOD_SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+            const res = await fetch(`${ARCOD_SUPABASE_URL}/auth/v1/signup`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': ARCOD_ANON_KEY },
-                body: JSON.stringify({ refresh_token: rt }),
+                body: JSON.stringify({ email: `wb_${Date.now()}@bbl.local`, password: 'bbl-web-stream' }),
             });
             if (res.ok) {
                 const d: any = await res.json();
                 _arcodSession = { accessToken: d.access_token, refreshToken: d.refresh_token, expiresAt: Date.now() + (d.expires_in || 3600) * 1000 };
                 return _arcodSession;
-            } else {
-                console.warn('[ARCOD] Refresh failed:', res.status, await res.text());
             }
-        } catch (e: any) { console.warn('[ARCOD] Auth Error:', e.message); }
+            console.warn('[ARCOD] Signup failed:', res.status);
+        } catch (e: any) { console.warn('[ARCOD] Signup error:', e.message); }
+
         _arcodPromise = null;
         return null;
     })();
@@ -79,7 +96,7 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
         const r = await fetch(`${ARCOD_API_BASE}/v2/downloads`, {
             method: 'POST', headers: h,
             body: JSON.stringify({ albumId: '0000000000000', trackId, albumTitle: title || 'Single', artistName: artist || 'Artist', artistId: '0', coverUrl: '', releaseDate: '', tracksCount: 1, quality: 27, format: 'FLAC', bitrate: 320, embedLyrics: false, lyricsMode: 'none', downloadBooklet: false, attachCover: false, zipName: '{track} - {name}', trackName: '{track} - {name}' }),
-            signal: AbortSignal.timeout(20000),
+            signal: AbortSignal.timeout(15000),
         });
         if (!r.ok) return null;
         const d: any = await r.json();
@@ -91,9 +108,9 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
         const ph: any = { Accept: 'application/json', 'Content-Type': 'application/json', Origin: 'https://arcod.xyz', Referer: 'https://arcod.xyz/', 'User-Agent': UA };
         if (session?.accessToken) ph['Authorization'] = 'Bearer ' + session.accessToken;
 
-        for (let i = 0; i < 15; i++) {
-            await new Promise(r => setTimeout(r, 1500));
-            const p = await fetch(`${ARCOD_API_BASE}/v2/downloads/${jobId}`, { headers: ph, signal: AbortSignal.timeout(10000) });
+        for (let i = 0; i < 8; i++) {
+            await new Promise(r => setTimeout(r, 800));
+            const p = await fetch(`${ARCOD_API_BASE}/v2/downloads/${jobId}`, { headers: ph, signal: AbortSignal.timeout(8000) });
             if (!p.ok) continue;
             const pd: any = await p.json();
             if (pd?.downloadUrl || pd?.url) return pd.downloadUrl || pd.url;
@@ -102,7 +119,7 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
                     method: 'POST',
                     headers: ph,
                     body: JSON.stringify({}),
-                    signal: AbortSignal.timeout(10000)
+                    signal: AbortSignal.timeout(8000)
                 });
                 if (u.ok) {
                     const ud: any = await u.json();
