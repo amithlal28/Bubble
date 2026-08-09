@@ -74,12 +74,7 @@ window.BubbleRouter = (() => {
     container.style.animation = 'fadeIn 0.25s ease';
     
     try {
-      const isAsync = handler.constructor.name === 'AsyncFunction';
-      if (isAsync) {
-        await handler(container, params);
-      } else {
-        handler(container, params);
-      }
+      await handler(container, params);
     } catch (err) {
       console.error('Route handler error:', err);
       container.innerHTML = `<div class="empty-state"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div class="empty-state-title" style="color: #ef4444;">Failed to load view</div><div class="empty-state-text">${err.message || 'An unknown error occurred while rendering this page.'}</div><button class="btn btn-primary" style="margin-top: 16px;" onclick="BubbleRouter.navigate('${path}', {}, true)">Retry</button></div>`;
