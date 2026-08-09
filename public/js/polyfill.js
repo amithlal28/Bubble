@@ -435,9 +435,10 @@ if (typeof stash === 'undefined') {
                     <!-- Collapsible Custom App Section -->
                     <div id="spotify-custom-app-section" style="display: none; margin-top: 14px; padding: 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;">
                         <div style="font-size: 12px; color: #a1a1aa; margin-bottom: 10px; line-height: 1.5;">
-                            Create a free app at <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: #1ed760; text-decoration: underline;">developer.spotify.com/dashboard</a> and add these <strong>Redirect URIs</strong> under Settings:<br>
-                            <code style="background: rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 4px; color: #fff; font-size: 11px; display: inline-block; margin-top: 4px;">http://localhost:3000/auth/spotify/callback</code><br>
-                            <code style="background: rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 4px; color: #fff; font-size: 11px; display: inline-block; margin-top: 2px;">http://127.0.0.1:3000/auth/spotify/callback</code>
+                            If you created a Custom App in the Spotify Developer Dashboard, you must enter this exact Redirect URI:
+                            <br>
+                            <code id="arcod-spotify-redirect-hint" style="background: rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 4px; color: #fff; font-size: 11px; display: inline-block; margin-top: 4px;"></code>
+                            <script>document.getElementById('arcod-spotify-redirect-hint').textContent = window.location.origin + '/auth/spotify/callback';</script>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             <input type="text" id="spotify-input-client-id" placeholder="Client ID" style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff; font-size: 12px; font-family: monospace; outline: none;">
@@ -631,7 +632,7 @@ if (typeof stash === 'undefined') {
                         } else {
                             oauthBtn.disabled = false;
                             oauthBtn.style.opacity = '1';
-                            showStatus('If Spotify showed "redirect_uri mismatch", click <strong>Custom Spotify App</strong> above to input your App Client ID with redirect URI: <br><code>http://localhost:3000/auth/spotify/callback</code>', true, false);
+                            showStatus(`If Spotify showed "redirect_uri mismatch", click <strong>Custom Spotify App</strong> above to input your App Client ID with redirect URI: <br><code>${window.location.origin}/auth/spotify/callback</code>`, true, false);
                         }
                     }
                 }, 1000);
