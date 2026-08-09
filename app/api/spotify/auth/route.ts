@@ -25,11 +25,20 @@ function getSpotifyCredentials(request: Request, body?: any) {
     return { clientId, clientSecret };
 }
 
+function getDefaultOrigin(request: Request) {
+    if (process.env.NEXT_PUBLIC_APP_URL) {
+        // Strip trailing slash if present
+        return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
+    }
+    const host = request.headers.get('host') || 'localhost:3000';
+    const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http://' : 'https://';
+    return `${protocol}${host}`;
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action') || 'url';
-    const host = request.headers.get('host') || 'localhost:3000';
-    const defaultOrigin = host.includes('127.0.0.1') ? `http://${host}` : 'http://localhost:3000';
+    const defaultOrigin = getDefaultOrigin(request);
     const redirectUri = searchParams.get('redirect_uri') || `${defaultOrigin}/auth/spotify/callback`;
     const { clientId } = getSpotifyCredentials(request);
 
@@ -57,7 +66,7 @@ export async function POST(request: Request) {
             const params = new URLSearchParams({
                 grant_type: 'authorization_code',
                 code: code,
-                redirect_uri: redirect_uri || 'http://localhost:3000/auth/spotify/callback'
+                redirect_uri: redirect_uri || `${getDefaultOrigin(request)}/auth/spotify/callback`
             });
 
             const res = await fetch('https://accounts.spotify.com/api/token', {
