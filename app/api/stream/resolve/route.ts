@@ -164,75 +164,38 @@ function findYtDlp() {
     return null;
 }
 
-async function youtubeDirectWithCookie(track: any, cookie: string): Promise<string | null> {
-    if (!cookie) return null;
+// SoundCloud client ID (public, embedded in their web player — stable)
+const SOUNDCLOUD_CLIENT_ID = 'iZIs9mchVcX5lhVRyQGGAYlNPVldzAoX';
+
+async function fetchSoundCloudStream(track: any): Promise<string | null> {
     try {
-        // Step 1: Search YouTube via Piped to get the video ID (Piped search still works)
-        const query = `${track.artist || ''} ${track.title || ''}`.trim();
+        const query = encodeURIComponent(`${track.artist || ''} ${track.title || ''}`.trim());
         if (!query) return null;
 
-        let videoId: string | null = null;
-        try {
-            const sr = await fetch(
-                `https://api.piped.private.coffee/search?q=${encodeURIComponent(query)}&filter=videos`,
-                { signal: AbortSignal.timeout(5000) }
-            );
-            if (sr.ok) {
-                const sd: any = await sr.json();
-                const first = (sd.items || []).find((it: any) => it.type === 'stream' || it.url);
-                if (first) {
-                    videoId = first.url ? first.url.replace('/watch?v=', '') : (first.id || '');
-                }
-            }
-        } catch (_) { /* Piped search failed, videoId stays null */ }
-
-        if (!videoId) return null;
-
-        // Step 2: Use YouTube's InnerTube API with the user's cookie to get audio URLs
-        const ytRes = await fetch(
-            'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Cookie': cookie,
-                    'User-Agent': UA,
-                    'Origin': 'https://www.youtube.com',
-                },
-                body: JSON.stringify({
-                    videoId,
-                    context: {
-                        client: {
-                            clientName: 'WEB',
-                            clientVersion: '2.20240804.00.00',
-                            hl: 'en',
-                            gl: 'US',
-                        },
-                    },
-                }),
-                signal: AbortSignal.timeout(10000),
-            }
+        const sr = await fetch(
+            `https://api-v2.soundcloud.com/search/tracks?q=${query}&limit=5&client_id=${SOUNDCLOUD_CLIENT_ID}`,
+            { signal: AbortSignal.timeout(5000) }
         );
+        if (!sr.ok) return null;
+        const data: any = await sr.json();
+        const tracks = data?.collection || [];
 
-        if (!ytRes.ok) return null;
-        const data: any = await ytRes.json();
+        // Match by title/artist similarity
+        const nqt = norm(track.title), nqa = norm(track.artist);
+        let best: any = null, bestS = 0.4;
+        for (const t of tracks) {
+            const s = jaccard(nqt, norm(t.title || '')) * 0.6 + jaccard(nqa, norm(t.user?.username || ''));
+            if (s > bestS) { bestS = s; best = t; }
+        }
 
-        // Extract audio formats from adaptiveFormats
-        const formats = data?.streamingData?.adaptiveFormats || [];
-        const audioFormats = formats.filter((f: any) =>
-            f.mimeType?.startsWith('audio/') && f.url
-        );
-        if (audioFormats.length === 0) return null;
-
-        // Pick best bitrate audio
-        const best = audioFormats.sort((a: any, b: any) =>
-            (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0)
-        )[0];
-
-        return best.url;
-    } catch (_) {
-        return null;
-    }
+        if (best?.stream_url) {
+            const url = best.stream_url + '?client_id=' + SOUNDCLOUD_CLIENT_ID;
+            // Verify the stream is accessible
+            const test = await fetch(url, { signal: AbortSignal.timeout(5000), headers: { Range: 'bytes=0-0' } });
+            if (test.ok || test.status === 206) return url;
+        }
+    } catch (_) { }
+    return null;
 }
 
 async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
@@ -388,13 +351,18 @@ export async function POST(request: Request) {
             }
         }
 
-        // 3. YouTube fallback — try direct InnerTube API with user's cookie first,
-        //    then fall back to Piped/Invidious instances
-        const ytCookie = request.headers.get('x-youtube-cookie') || '';
-        const yt = (await youtubeStream(track))
-            || (ytCookie ? await youtubeDirectWithCookie(track, ytCookie) : null)
+        // 3. Fallbacks: SoundCloud → YouTube (Piped/Invidious)
+        const yt = (await fetchSoundCloudStream(track))
+            || (await youtubeStream(track))
             || (await fetchOnlineYouTubeStream(track));
-        if (yt) return Response.json({ url: yt, source: 'youtube', quality: 'AAC/Opus (YouTube Music)' });
+        if (yt) {
+            const isSC = yt.includes('soundcloud.com');
+            return Response.json({
+                url: yt,
+                source: isSC ? 'soundcloud' : 'youtube',
+                quality: isSC ? 'AAC/MP3 (SoundCloud)' : 'AAC/Opus (YouTube Music)'
+            });
+        }
 
         return Response.json({
             error: arcodError ? `Lossless failed (${arcodError}), YouTube fallback also failed` : 'No stream found'
