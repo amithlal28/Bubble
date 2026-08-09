@@ -11,8 +11,8 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 let _arcodSession: any = null;
 let _arcodPromise: any = null;
 
-// Initial static fallback from user provided token
-const DEFAULT_REFRESH_TOKEN = 'xmmuolcmjru7';
+// Initial static fallback from environment variables for security
+const DEFAULT_REFRESH_TOKEN = process.env.ARCOD_REFRESH_TOKEN || '';
 
 async function getArcodSession() {
     if (_arcodSession && _arcodSession.expiresAt > Date.now() + 60000) return _arcodSession;
