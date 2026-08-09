@@ -54,7 +54,7 @@ window.BubbleRouter = (() => {
     }
   }
 
-  function render(path, params = {}, forceFresh = false) {
+  async function render(path, params = {}, forceFresh = false) {
     const container = document.getElementById('view-container');
     if (!container) return;
 
@@ -68,11 +68,22 @@ window.BubbleRouter = (() => {
       return;
     }
 
-    container.innerHTML = '';
+    container.innerHTML = `<div style="display: flex; justify-content: center; align-items: center; height: 100%; color: var(--text-secondary);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; margin-right: 12px;"><style>@keyframes spin { 100% { transform: rotate(360deg); } }</style><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg> Loading...</div>`;
     container.style.animation = 'none';
     void container.offsetHeight;
     container.style.animation = 'fadeIn 0.25s ease';
-    handler(container, params);
+    
+    try {
+      const isAsync = handler.constructor.name === 'AsyncFunction';
+      if (isAsync) {
+        await handler(container, params);
+      } else {
+        handler(container, params);
+      }
+    } catch (err) {
+      console.error('Route handler error:', err);
+      container.innerHTML = `<div class="empty-state"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div class="empty-state-title" style="color: #ef4444;">Failed to load view</div><div class="empty-state-text">${err.message || 'An unknown error occurred while rendering this page.'}</div><button class="btn btn-primary" style="margin-top: 16px;" onclick="BubbleRouter.navigate('${path}', {}, true)">Retry</button></div>`;
+    }
   }
 
   function init() {
