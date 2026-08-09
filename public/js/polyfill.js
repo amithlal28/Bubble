@@ -299,70 +299,22 @@ if (typeof stash === 'undefined') {
                         font-size: 15px;
                         cursor: pointer;
                         transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 10px;
-                        box-shadow: 0 4px 20px rgba(29, 185, 84, 0.3);
-                    ">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.217.355-.678.47-1.033.253-2.83-1.73-6.393-2.12-10.59-1.162-.405.093-.81-.16-.902-.566-.093-.406.16-.81.566-.903 4.59-1.047 8.528-.606 11.705 1.344.356.217.47.678.254 1.034zm1.467-3.26c-.274.444-.86.588-1.304.314-3.24-1.99-8.18-2.567-12.012-1.403-.497.15-1.025-.133-1.176-.63-.152-.497.133-1.025.63-1.177 4.382-1.33 9.824-.688 13.548 1.592.444.274.588.86.314 1.304zm.126-3.41c-3.885-2.307-10.29-2.52-14.004-1.393-.596.18-1.226-.157-1.407-.753-.18-.596.157-1.227.753-1.407 4.268-1.296 11.332-1.045 15.82 1.62.536.318.71 1.01.392 1.546-.318.536-1.01.71-1.554.387z"/></svg>
-                        <span>Sign In with Spotify</span>
-                    </button>
-
-                    <!-- Custom Spotify App Settings Trigger -->
-                    <div style="margin-top: 14px; text-align: center;">
-                        <button type="button" id="spotify-app-creds-toggle-btn" style="
-                            background: none;
-                            border: none;
-                            color: #a1a1aa;
-                            font-size: 12px;
-                            cursor: pointer;
-                            text-decoration: underline;
-                            padding: 4px;
-                            transition: color 0.2s;
-                        ">Custom Spotify App (Client ID / Secret)</button>
-                    </div>
-
-                    <!-- Collapsible Custom App Section -->
-                    <div id="spotify-custom-app-section" style="display: none; margin-top: 14px; padding: 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;">
-                        <div style="font-size: 12px; color: #a1a1aa; margin-bottom: 10px; line-height: 1.5;">
-                            If you created a Custom App in the Spotify Developer Dashboard, you must enter this exact Redirect URI:
-                            <br>
-                            <code id="arcod-spotify-redirect-hint" style="background: rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 4px; color: #fff; font-size: 11px; display: inline-block; margin-top: 4px;"></code>
-                            <script>document.getElementById('arcod-spotify-redirect-hint').textContent = window.location.origin + '/auth/spotify/callback';</script>
+                    <!-- Cookie Form directly visible -->
+                    <div id="spotify-manual-cookie-section" style="margin-top: 14px;">
+                        <div style="font-size: 11.5px; color: #a1a1aa; margin-bottom: 16px; line-height: 1.4; background: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                            <strong>How to get your session cookie (Requires a PC):</strong><br>
+                            1. Open <a href="https://open.spotify.com" target="_blank" style="color: #1ed760; text-decoration: none;">open.spotify.com</a> on a PC and log in.<br>
+                            2. Press <strong>F12</strong> to open Developer Tools.<br>
+                            3. Go to <strong>Application</strong> &gt; <strong>Cookies</strong> &gt; <strong>https://open.spotify.com</strong>.<br>
+                            4. Find the cookie named <code>sp_dc</code>, copy its <strong>Value</strong>, and paste it below.
                         </div>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <input type="text" id="spotify-input-client-id" placeholder="Client ID" style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff; font-size: 12px; font-family: monospace; outline: none;">
-                            <input type="password" id="spotify-input-client-secret" placeholder="Client Secret" style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff; font-size: 12px; font-family: monospace; outline: none;">
-                            <button type="button" id="spotify-save-app-creds-btn" style="padding: 8px; background: rgba(30, 215, 96, 0.2); border: 1px solid rgba(30, 215, 96, 0.4); border-radius: 8px; color: #1ed760; font-weight: 600; font-size: 12px; cursor: pointer;">
-                                Save App Credentials
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Cookie Fallback Trigger -->
-                    <div style="margin-top: 10px; text-align: center;">
-                        <button type="button" id="spotify-cookie-toggle-btn" style="
-                            background: none;
-                            border: none;
-                            color: #71717a;
-                            font-size: 11px;
-                            cursor: pointer;
-                            text-decoration: underline;
-                            padding: 4px;
-                            transition: color 0.2s;
-                        ">Advanced: Session cookie (sp_dc)</button>
-                    </div>
-
-                    <!-- Collapsible Cookie Panel -->
-                    <div id="spotify-manual-cookie-section" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
                         <form id="spotify-auth-form" style="display: flex; flex-direction: column; gap: 12px;">
                             <div>
                                 <label style="display: block; font-size: 11px; font-weight: 500; color: #a1a1aa; margin-bottom: 6px;">Spotify Session Cookie (sp_dc)</label>
-                                <textarea id="spotify-input-cookie" placeholder="AQB..." rows="2" style="width: 100%; box-sizing: border-box; padding: 10px 12px; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff; font-size: 12px; font-family: monospace; outline: none; transition: border-color 0.2s; resize: vertical;"></textarea>
+                                <textarea id="spotify-input-cookie" placeholder="AQB..." rows="3" style="width: 100%; box-sizing: border-box; padding: 10px 12px; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff; font-size: 12px; font-family: monospace; outline: none; transition: border-color 0.2s; resize: vertical;"></textarea>
                             </div>
-                            <button type="submit" id="spotify-cookie-submit-btn" style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s;">
-                                Save & Connect Cookie
+                            <button type="submit" id="spotify-cookie-submit-btn" style="width: 100%; padding: 12px; background: #1ed760; border: none; border-radius: 8px; color: #000; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s;">
+                                Connect Cookie
                             </button>
                         </form>
                     </div>
@@ -471,7 +423,8 @@ if (typeof stash === 'undefined') {
             window.addEventListener('message', onMessage);
 
             // OAuth Button click
-            oauthBtn.onclick = async () => {
+            if (oauthBtn) {
+                oauthBtn.onclick = async () => {
                 showStatus('Opening Spotify authorization window...', false, false);
                 oauthBtn.disabled = true;
                 oauthBtn.style.opacity = '0.7';
@@ -529,7 +482,7 @@ if (typeof stash === 'undefined') {
                         }
                     }
                 }, 1000);
-            };
+            }
 
             // Manual cookie form submit
             form.onsubmit = async (e) => {
