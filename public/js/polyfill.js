@@ -31,18 +31,41 @@ if (typeof stash === 'undefined') {
         return null;
     }
 
+    async function syncIntegrationsToServer() {
+        if (!window.BubbleAPI || !window.BubbleAPI.auth || !window.BubbleAPI.auth.isSignedIn()) return;
+        try {
+            await fetch('/api/integrations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    spotify_access_token: localStorage.getItem('creds_spotify_token'),
+                    spotify_refresh_token: localStorage.getItem('creds_spotify_refresh_token'),
+                    spotify_token_expiry: localStorage.getItem('creds_spotify_token_expiry'),
+                    spotify_client_id: localStorage.getItem('creds_spotify_client_id'),
+                    spotify_client_secret: localStorage.getItem('creds_spotify_client_secret'),
+                    arcod_token: localStorage.getItem('creds_arcod_token'),
+                    youtube_token: localStorage.getItem('creds_youtube_cookie')
+                })
+            });
+        } catch (e) {
+            console.error('Failed to sync integrations', e);
+        }
+    }
+
     function saveArcodSession(session) {
         if (!session) return;
         localStorage.setItem('creds_arcod_session', JSON.stringify(session));
         if (session.accessToken) {
             localStorage.setItem('creds_arcod_token', session.accessToken);
         }
+        syncIntegrationsToServer();
     }
 
     function removeArcodSession() {
         localStorage.removeItem('creds_arcod_session');
         localStorage.removeItem('creds_arcod_token');
         localStorage.removeItem('creds_arcod_stashkey');
+        syncIntegrationsToServer();
     }
 
     // Interactive In-Web ARCOD Login Modal
@@ -412,6 +435,7 @@ if (typeof stash === 'undefined') {
                     else localStorage.removeItem('creds_spotify_client_id');
                     if (sec) localStorage.setItem('creds_spotify_client_secret', sec);
                     else localStorage.removeItem('creds_spotify_client_secret');
+                    syncIntegrationsToServer();
                     showStatus('App credentials saved! Click "Sign In with Spotify".', false, true);
                     appCredsSection.style.display = 'none';
                 };
@@ -435,6 +459,7 @@ if (typeof stash === 'undefined') {
                         if (window.BubbleSpotify) {
                             window.BubbleSpotify.connected = true;
                         }
+                        syncIntegrationsToServer();
                         showStatus(`Connected as <strong>${(data.profile && data.profile.display_name) || 'Spotify User'}</strong>!`, false, true);
                         setTimeout(() => {
                             closeModal({ success: true, profile: data.profile });
@@ -538,6 +563,7 @@ if (typeof stash === 'undefined') {
                     if (window.BubbleSpotify) {
                         window.BubbleSpotify.connected = true;
                     }
+                    syncIntegrationsToServer();
                     showStatus(`Connected as <strong>${profile.display_name || profile.id}</strong>!`, false, true);
                     setTimeout(() => closeModal({ success: true, profile }), 800);
                 } catch (err) {
@@ -662,6 +688,7 @@ if (typeof stash === 'undefined') {
                 localStorage.removeItem('creds_spotify_token_expiry');
                 localStorage.removeItem('creds_spotify_cookie');
                 if (window.BubbleSpotify) window.BubbleSpotify.connected = false;
+                syncIntegrationsToServer();
                 return true;
             },
 

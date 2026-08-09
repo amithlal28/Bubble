@@ -14,7 +14,25 @@ export default function HomePage() {
             const supabase = createClient();
             (window as any).__bubbleSupabase = supabase;
 
-            supabase.auth.getSession().then(({ data: { session } }) => {
+            supabase.auth.getSession().then(async ({ data: { session } }) => {
+                if (session?.user) {
+                    try {
+                        const res = await fetch('/api/integrations');
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.spotify_access_token) localStorage.setItem('creds_spotify_token', data.spotify_access_token);
+                            if (data.spotify_refresh_token) localStorage.setItem('creds_spotify_refresh_token', data.spotify_refresh_token);
+                            if (data.spotify_token_expiry) localStorage.setItem('creds_spotify_token_expiry', data.spotify_token_expiry);
+                            if (data.spotify_client_id) localStorage.setItem('creds_spotify_client_id', data.spotify_client_id);
+                            if (data.spotify_client_secret) localStorage.setItem('creds_spotify_client_secret', data.spotify_client_secret);
+                            if (data.arcod_token) localStorage.setItem('creds_arcod_token', data.arcod_token);
+                            if (data.youtube_token) localStorage.setItem('creds_youtube_cookie', data.youtube_token);
+                        }
+                    } catch (e) {
+                        console.error('Failed to load integrations', e);
+                    }
+                }
+
                 setUser(session?.user ?? null);
                 setLoading(false);
                 (window as any).__bubbleUser = session?.user ?? null;

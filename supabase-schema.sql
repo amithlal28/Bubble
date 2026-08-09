@@ -238,3 +238,23 @@ FROM (
   WHERE COALESCE(pl.dismissed, false) = false
 ) unified
 ORDER BY user_id, track_id, is_liked DESC, added_ts DESC;
+
+-- ── User Integrations (Sync Tokens Across Devices) ───────────────
+CREATE TABLE IF NOT EXISTS user_integrations (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  spotify_access_token TEXT,
+  spotify_refresh_token TEXT,
+  spotify_token_expiry BIGINT,
+  spotify_client_id TEXT,
+  spotify_client_secret TEXT,
+  arcod_token TEXT,
+  youtube_token TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE user_integrations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can CRUD own integrations" ON user_integrations;
+CREATE POLICY "Users can CRUD own integrations" ON user_integrations
+  FOR ALL USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
