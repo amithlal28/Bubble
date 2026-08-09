@@ -22,7 +22,10 @@ export default function HomePage() {
             });
 
             supabase.auth.onAuthStateChange((_event, session) => {
-                setUser(session?.user ?? null);
+                setUser((prev: any) => {
+                    if (prev?.id === session?.user?.id) return prev;
+                    return session?.user ?? null;
+                });
                 (window as any).__bubbleUser = session?.user ?? null;
             });
         }).catch((err) => {
