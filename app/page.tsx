@@ -56,12 +56,37 @@ export default function HomePage() {
     // Init Bubble app after mount (scripts are loaded via defer in layout.tsx)
     useEffect(() => {
         if (!loading) {
-            const timer = setTimeout(() => {
-                if (typeof (window as any).BubbleApp !== 'undefined') {
-                    (window as any).BubbleApp.init();
+            let attempts = 0;
+            const maxAttempts = 30; // 30 * 200ms = 6 seconds max wait
+            let timer: ReturnType<typeof setInterval>;
+
+            const tryInit = () => {
+                attempts++;
+                const BubbleApp = (window as any).BubbleApp;
+                const BubbleRouter = (window as any).BubbleRouter;
+
+                if (typeof BubbleApp !== 'undefined' && typeof BubbleApp.init === 'function') {
+                    clearInterval(timer);
+                    console.log('[Bubble Web] Initializing app (attempt ' + attempts + ')');
+                    BubbleApp.init().catch((err: any) => {
+                        console.error('[Bubble Web] App init failed:', err);
+                    });
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(timer);
+                    console.error('[Bubble Web] Failed to initialize after ' + maxAttempts + ' attempts. Scripts may not have loaded.');
+                    console.error('[Bubble Web] BubbleApp:', typeof BubbleApp, 'BubbleRouter:', typeof BubbleRouter);
                 }
-            }, 200);
-            return () => clearTimeout(timer);
+            };
+
+            // Try immediately first (scripts may already be loaded)
+            tryInit();
+
+            // Then poll every 200ms
+            if (typeof (window as any).BubbleApp === 'undefined') {
+                timer = setInterval(tryInit, 200);
+            }
+
+            return () => { if (timer) clearInterval(timer); };
         }
     }, [loading]);
 
@@ -130,6 +155,26 @@ export default function HomePage() {
                     </Link>
                 )}
             </header>
+
+            <div style={{ position: 'fixed', bottom: 10, left: 10, zIndex: 9999, background: 'rgba(255,0,0,0.8)', padding: '10px', color: 'white', fontSize: '12px', fontFamily: 'monospace' }}>
+                <div id="debug-bubble-app">BubbleApp: ?</div>
+                <div id="debug-bubble-router">BubbleRouter: ?</div>
+                <div id="debug-error-log">Errors:</div>
+                <script dangerouslySetInnerHTML={{
+                    __html: `
+                        window.addEventListener('error', e => {
+                            const d = document.getElementById('debug-error-log');
+                            if(d) d.innerHTML += '<br>' + e.message;
+                        });
+                        setInterval(() => {
+                            const a = document.getElementById('debug-bubble-app');
+                            if(a) a.innerText = 'BubbleApp: ' + typeof window.BubbleApp;
+                            const r = document.getElementById('debug-bubble-router');
+                            if(r) r.innerText = 'BubbleRouter: ' + typeof window.BubbleRouter;
+                        }, 1000);
+                    `
+                }} />
+            </div>
 
             {/* ═══ Main App Layout (1:1 parity with Desktop index.html) ═══ */}
             <div id="app-container" className="app-container" ref={containerRef}>

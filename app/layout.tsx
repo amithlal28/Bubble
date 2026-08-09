@@ -36,33 +36,33 @@ export default function RootLayout({
                 <link rel="stylesheet" href="/css/web.css" />
                 {/* Scripts loaded with defer — execute in order after HTML parse */}
                 {/* Order MUST match Electron index.html: router BEFORE views */}
-                <script src="/js/polyfill.js" defer />
-                <script src="/js/vendor/howler.min.js" defer />
-                <script src="/js/api.js" defer />
-                <script src="/js/database.js" defer />
-                <script src="/js/router.js" defer />
-                <script src="/js/player.js" defer />
-                <script src="/js/spotify.js" defer />
-                <script src="/js/youtube.js" defer />
-                <script src="/js/library.js" defer />
-                <script src="/js/downloader.js" defer />
-                <script src="/js/lyrics.js" defer />
-                <script src="/js/sync.js" defer />
-                <script src="/js/settings.js" defer />
+                <script src="/js/polyfill.js" defer></script>
+                <script src="/js/vendor/howler.min.js" defer></script>
+                <script src="/js/api.js" defer></script>
+                <script src="/js/database.js" defer></script>
+                <script src="/js/router.js" defer></script>
+                <script src="/js/player.js" defer></script>
+                <script src="/js/spotify.js" defer></script>
+                <script src="/js/youtube.js" defer></script>
+                <script src="/js/library.js" defer></script>
+                <script src="/js/downloader.js" defer></script>
+                <script src="/js/lyrics.js" defer></script>
+                <script src="/js/sync.js" defer></script>
+                <script src="/js/settings.js" defer></script>
                 {/* Views — must load after router.js */}
-                <script src="/js/views/home.js" defer />
-                <script src="/js/views/library.js" defer />
-                <script src="/js/views/playlist.js" defer />
-                <script src="/js/views/downloads.js" defer />
-                <script src="/js/views/settings.js" defer />
-                <script src="/js/views/nowplaying.js" defer />
-                <script src="/js/views/queue.js" defer />
-                <script src="/js/views/lyrics.js" defer />
-                <script src="/js/views/search.js" defer />
-                <script src="/js/views/album.js" defer />
-                <script src="/js/views/artist.js" defer />
-                <script src="/js/views/sync.js" defer />
-                <script src="/js/app.js" defer />
+                <script src="/js/views/home.js" defer></script>
+                <script src="/js/views/library.js" defer></script>
+                <script src="/js/views/playlist.js" defer></script>
+                <script src="/js/views/downloads.js" defer></script>
+                <script src="/js/views/settings.js" defer></script>
+                <script src="/js/views/nowplaying.js" defer></script>
+                <script src="/js/views/queue.js" defer></script>
+                <script src="/js/views/lyrics.js" defer></script>
+                <script src="/js/views/search.js" defer></script>
+                <script src="/js/views/album.js" defer></script>
+                <script src="/js/views/artist.js" defer></script>
+                <script src="/js/views/sync.js" defer></script>
+                <script src="/js/app.js" defer></script>
             </head>
             <body>{children}</body>
         </html>

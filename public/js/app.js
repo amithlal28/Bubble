@@ -43,18 +43,26 @@ window.BubbleApp = (() => {
     setupKeyboardShortcuts();
 
     // 5. Initialize Modules
-    await BubbleSettings.load();
+    try { await BubbleSettings.load(); } catch (e) { console.warn('[BubbleApp] Settings load failed:', e); }
     try { await BubbleSpotify.checkConnection(); } catch (e) { /* web: no Spotify */ }
     try { await BubbleYouTube.checkConnection(); } catch (e) { /* web: no YouTube */ }
-    BubbleDownloader.init();
-    await BubbleLibrary.updateSidebarPlaylists();
-    if (isElectron) BubbleSync.startScheduled();
+    try { BubbleDownloader.init(); } catch (e) { console.warn('[BubbleApp] Downloader init failed:', e); }
+    try { await BubbleLibrary.updateSidebarPlaylists(); } catch (e) { console.warn('[BubbleApp] Sidebar update failed:', e); }
+    if (isElectron) { try { BubbleSync.startScheduled(); } catch (e) { /* ignore */ } }
 
     // 6. Connect Player Events to UI
-    setupPlayerEvents();
+    try { setupPlayerEvents(); } catch (e) { console.warn('[BubbleApp] Player events setup failed:', e); }
 
-    // 7. Start Router
-    BubbleRouter.init();
+    // 7. Start Router — THIS MUST ALWAYS RUN
+    try {
+      if (typeof BubbleRouter !== 'undefined' && BubbleRouter.init) {
+        BubbleRouter.init();
+      } else {
+        console.error('[BubbleApp] BubbleRouter not available — views cannot render');
+      }
+    } catch (e) {
+      console.error('[BubbleApp] Router init failed:', e);
+    }
   }
 
   /* ── Titlebar Window Controls ──────────────────────────────────── */
