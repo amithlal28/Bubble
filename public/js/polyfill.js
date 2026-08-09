@@ -91,14 +91,27 @@ if (typeof stash === 'undefined') {
                         <button id="arcod-modal-close" style="background: none; border: none; color: #8e8ea0; cursor: pointer; padding: 6px; border-radius: 6px; font-size: 18px; line-height: 1;">✕</button>
                     </div>
 
-                    <!-- Google Sign In -->
-                    <button type="button" id="arcod-google-btn" style="
+                    <!-- Paste Token -->
+                    <div style="margin-bottom: 24px;">
+                        <label style="display: block; font-size: 13px; font-weight: 500; color: #a1a1aa; margin-bottom: 8px;">Paste Access Token</label>
+                        <input type="password" id="arcod-input-token" required placeholder="eyJhbGciOi..." style="width: 100%; box-sizing: border-box; padding: 12px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff; font-size: 14px; outline: none; font-family: monospace; transition: border-color 0.2s;">
+                        <button type="button" id="arcod-submit-token-btn" style="width: 100%; padding: 12px; margin-top: 10px; background: #22c55e; border: none; border-radius: 8px; color: #000; font-weight: 700; font-size: 14px; cursor: pointer; transition: background 0.2s, transform 0.1s;">Connect with Token</button>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1);"></div>
+                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">Don't have a token?</div>
+                        <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1);"></div>
+                    </div>
+
+                    <!-- Get Token Button -->
+                    <button type="button" id="arcod-get-token-btn" style="
                         width: 100%;
-                        padding: 11px;
-                        background: #ffffff;
+                        padding: 12px;
+                        background: rgba(255, 255, 255, 0.1);
                         border: 1px solid rgba(255, 255, 255, 0.2);
                         border-radius: 8px;
-                        color: #1a1a1a;
+                        color: #fff;
                         font-weight: 600;
                         font-size: 14px;
                         cursor: pointer;
@@ -106,74 +119,32 @@ if (typeof stash === 'undefined') {
                         align-items: center;
                         justify-content: center;
                         gap: 10px;
-                        margin-bottom: 16px;
                         transition: background 0.2s, transform 0.1s;
                     ">
-                        <svg width="18" height="18" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                        </svg>
-                        <span>Continue with Google</span>
+                        <span>Get Token from ARCOD</span>
                     </button>
 
-                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                        <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1);"></div>
-                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">or with email</div>
-                        <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1);"></div>
-                    </div>
-
-                    <!-- Auth Mode Tabs -->
-                    <div style="display: flex; background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 3px; margin-bottom: 20px; border: 1px solid rgba(255, 255, 255, 0.05);">
-                        <button id="arcod-tab-login" style="flex: 1; padding: 8px; border-radius: 6px; border: none; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Sign In</button>
-                        <button id="arcod-tab-signup" style="flex: 1; padding: 8px; border-radius: 6px; border: none; background: transparent; color: #8e8ea0; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Create Account</button>
-                    </div>
-
-                    <div id="arcod-modal-error" style="display: none; padding: 10px 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 12px; margin-bottom: 16px; line-height: 1.4;"></div>
-
-                    <form id="arcod-auth-form" style="display: flex; flex-direction: column; gap: 14px;">
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 500; color: #a1a1aa; margin-bottom: 6px;">Email address</label>
-                            <input type="email" id="arcod-input-email" required placeholder="your.email@example.com" style="width: 100%; box-sizing: border-box; padding: 10px 12px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s;">
-                        </div>
-
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 500; color: #a1a1aa; margin-bottom: 6px;">Password</label>
-                            <input type="password" id="arcod-input-password" required placeholder="••••••••" style="width: 100%; box-sizing: border-box; padding: 10px 12px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s;">
-                        </div>
-
-                        <button type="submit" id="arcod-submit-btn" style="width: 100%; padding: 12px; margin-top: 6px; background: #22c55e; border: none; border-radius: 8px; color: #000; font-weight: 700; font-size: 14px; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <span>Sign In & Connect</span>
-                        </button>
-                    </form>
+                    <div id="arcod-modal-error" style="display: none; padding: 10px 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 12px; margin-top: 16px; line-height: 1.4;"></div>
 
                     <div style="margin-top: 18px; text-align: center; font-size: 11px; color: #71717a; line-height: 1.5;">
-                        Connects directly to ARCOD's authentication service. Your credentials are used securely to generate lossless stream sessions.
+                        To get your token, log into ARCOD, open Developer Tools (F12) > Application > Local Storage, and copy the value inside supabase.auth.token.
                     </div>
                 </div>
                 <style>
                     @keyframes arcodFadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
-                    #arcod-input-email:focus, #arcod-input-password:focus { border-color: #22c55e !important; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2); }
-                    #arcod-google-btn:hover { background: #f4f4f5 !important; }
-                    #arcod-google-btn:active { transform: scale(0.99); }
-                    #arcod-submit-btn:hover { background: #16a34a !important; }
-                    #arcod-submit-btn:active { transform: scale(0.99); }
+                    #arcod-input-token:focus { border-color: #22c55e !important; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2); }
+                    #arcod-submit-token-btn:hover { background: #16a34a !important; }
+                    #arcod-submit-token-btn:active { transform: scale(0.99); }
                 </style>
             `;
 
             document.body.appendChild(overlay);
 
-            let currentAction = 'login';
-            const googleBtn = document.getElementById('arcod-google-btn');
-            const tabLogin = document.getElementById('arcod-tab-login');
-            const tabSignup = document.getElementById('arcod-tab-signup');
-            const submitBtn = document.getElementById('arcod-submit-btn');
+            const tokenInput = document.getElementById('arcod-input-token');
+            const submitTokenBtn = document.getElementById('arcod-submit-token-btn');
+            const getTokenBtn = document.getElementById('arcod-get-token-btn');
             const errorBox = document.getElementById('arcod-modal-error');
-            const emailInput = document.getElementById('arcod-input-email');
-            const passwordInput = document.getElementById('arcod-input-password');
             const closeBtn = document.getElementById('arcod-modal-close');
-            const form = document.getElementById('arcod-auth-form');
 
             function closeModal(result) {
                 overlay.remove();
@@ -183,140 +154,36 @@ if (typeof stash === 'undefined') {
             closeBtn.onclick = () => closeModal();
             overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
 
-            // Google OAuth Sign In Handler
-            googleBtn.onclick = () => {
-                const width = 500, height = 650;
-                const left = window.screenX + (window.outerWidth - width) / 2;
-                const top = window.screenY + (window.outerHeight - height) / 2;
-                const callbackUrl = encodeURIComponent(window.location.origin + '/auth/arcod/callback');
-                const authUrl = `https://fnlghyzwyoklfqyhqlav.supabase.co/auth/v1/authorize?provider=google&redirect_to=${callbackUrl}`;
+            getTokenBtn.onclick = () => {
+                window.open('https://arcod.xyz', '_blank');
+            };
 
-                const popup = window.open(
-                    authUrl,
-                    'arcod_google_auth',
-                    `width=${width},height=${height},left=${left},top=${top},status=no,menubar=no,toolbar=no`
-                );
-
-                if (!popup) {
-                    window.location.href = authUrl;
+            submitTokenBtn.onclick = () => {
+                const tokenVal = (tokenInput.value || '').trim();
+                if (!tokenVal) {
+                    errorBox.style.display = 'block';
+                    errorBox.textContent = 'Please enter an access token.';
                     return;
                 }
 
-                googleBtn.disabled = true;
-                googleBtn.style.opacity = '0.7';
-                const span = googleBtn.querySelector('span');
-                if (span) span.textContent = 'Waiting for Google sign-in...';
-
-                function onMessage(event) {
-                    if (event.data && event.data.type === 'ARCOD_AUTH_SUCCESS' && event.data.session) {
-                        cleanup();
-                        saveArcodSession(event.data.session);
-                        closeModal({ success: true, session: event.data.session });
-                    }
-                }
-
-                function onStorage(event) {
-                    if (event.key === 'creds_arcod_session' || event.key === 'creds_arcod_token') {
-                        const sess = getStoredArcodSession();
-                        if (sess && sess.accessToken) {
-                            cleanup();
-                            closeModal({ success: true, session: sess });
-                        }
-                    }
-                }
-
-                function cleanup() {
-                    window.removeEventListener('message', onMessage);
-                    window.removeEventListener('storage', onStorage);
-                    if (checkInterval) clearInterval(checkInterval);
-                    googleBtn.disabled = false;
-                    googleBtn.style.opacity = '1';
-                    if (span) span.textContent = 'Continue with Google';
-                }
-
-                window.addEventListener('message', onMessage);
-                window.addEventListener('storage', onStorage);
-
-                const checkInterval = setInterval(() => {
-                    const sess = getStoredArcodSession();
-                    if (sess && sess.accessToken) {
-                        cleanup();
-                        closeModal({ success: true, session: sess });
-                        return;
-                    }
-                    if (popup.closed) {
-                        cleanup();
-                    }
-                }, 600);
-            };
-
-            tabLogin.onclick = () => {
-                currentAction = 'login';
-                tabLogin.style.background = 'rgba(255, 255, 255, 0.12)';
-                tabLogin.style.color = '#fff';
-                tabSignup.style.background = 'transparent';
-                tabSignup.style.color = '#8e8ea0';
-                submitBtn.innerHTML = '<span>Sign In & Connect</span>';
-                errorBox.style.display = 'none';
-            };
-
-            tabSignup.onclick = () => {
-                currentAction = 'signup';
-                tabSignup.style.background = 'rgba(255, 255, 255, 0.12)';
-                tabSignup.style.color = '#fff';
-                tabLogin.style.background = 'transparent';
-                tabLogin.style.color = '#8e8ea0';
-                submitBtn.innerHTML = '<span>Create ARCOD Account</span>';
-                errorBox.style.display = 'none';
-            };
-
-            form.onsubmit = async (e) => {
-                e.preventDefault();
-                errorBox.style.display = 'none';
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.7';
-                submitBtn.innerHTML = '<span>Connecting...</span>';
-
                 try {
-                    const res = await fetch('/api/arcod/auth', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: currentAction,
-                            email: emailInput.value,
-                            password: passwordInput.value,
-                        }),
-                    });
-
-                    const data = await res.json();
-                    if (!res.ok || !data.success) {
-                        throw new Error(data.error || 'Authentication failed');
+                    // Accept a raw token or a JSON block that they copied
+                    let sessionObj = { accessToken: tokenVal, expiresAt: Date.now() + 86400000 };
+                    
+                    if (tokenVal.startsWith('{')) {
+                        const parsed = JSON.parse(tokenVal);
+                        sessionObj = {
+                            accessToken: parsed.access_token || parsed.accessToken || tokenVal,
+                            refreshToken: parsed.refresh_token || parsed.refreshToken || null,
+                            expiresAt: parsed.expires_at ? (parsed.expires_at * 1000) : (Date.now() + 86400000)
+                        };
                     }
 
-                    if (data.session) {
-                        saveArcodSession(data.session);
-                        closeModal({ success: true, session: data.session });
-                    } else if (currentAction === 'signup') {
-                        // Switch to login tab
-                        tabLogin.click();
-                        errorBox.style.display = 'block';
-                        errorBox.style.background = 'rgba(34, 197, 94, 0.15)';
-                        errorBox.style.borderColor = 'rgba(34, 197, 94, 0.3)';
-                        errorBox.style.color = '#4ade80';
-                        errorBox.textContent = data.message || 'Account created! Please sign in.';
-                        submitBtn.disabled = false;
-                        submitBtn.style.opacity = '1';
-                        submitBtn.innerHTML = '<span>Sign In & Connect</span>';
-                    }
-                } catch (err) {
+                    saveArcodSession(sessionObj);
+                    closeModal({ success: true, session: sessionObj });
+                } catch (e) {
                     errorBox.style.display = 'block';
-                    errorBox.style.background = 'rgba(239, 68, 68, 0.15)';
-                    errorBox.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                    errorBox.style.color = '#f87171';
-                    errorBox.textContent = err.message || 'Login failed. Please check your credentials.';
-                    submitBtn.disabled = false;
-                    submitBtn.style.opacity = '1';
-                    submitBtn.innerHTML = currentAction === 'login' ? '<span>Sign In & Connect</span>' : '<span>Create ARCOD Account</span>';
+                    errorBox.textContent = 'Invalid token format.';
                 }
             };
         });
