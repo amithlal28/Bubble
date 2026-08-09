@@ -164,6 +164,77 @@ function findYtDlp() {
     return null;
 }
 
+async function youtubeDirectWithCookie(track: any, cookie: string): Promise<string | null> {
+    if (!cookie) return null;
+    try {
+        // Step 1: Search YouTube via Piped to get the video ID (Piped search still works)
+        const query = `${track.artist || ''} ${track.title || ''}`.trim();
+        if (!query) return null;
+
+        let videoId: string | null = null;
+        try {
+            const sr = await fetch(
+                `https://api.piped.private.coffee/search?q=${encodeURIComponent(query)}&filter=videos`,
+                { signal: AbortSignal.timeout(5000) }
+            );
+            if (sr.ok) {
+                const sd: any = await sr.json();
+                const first = (sd.items || []).find((it: any) => it.type === 'stream' || it.url);
+                if (first) {
+                    videoId = first.url ? first.url.replace('/watch?v=', '') : (first.id || '');
+                }
+            }
+        } catch (_) { /* Piped search failed, videoId stays null */ }
+
+        if (!videoId) return null;
+
+        // Step 2: Use YouTube's InnerTube API with the user's cookie to get audio URLs
+        const ytRes = await fetch(
+            'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cookie': cookie,
+                    'User-Agent': UA,
+                    'Origin': 'https://www.youtube.com',
+                },
+                body: JSON.stringify({
+                    videoId,
+                    context: {
+                        client: {
+                            clientName: 'WEB',
+                            clientVersion: '2.20240804.00.00',
+                            hl: 'en',
+                            gl: 'US',
+                        },
+                    },
+                }),
+                signal: AbortSignal.timeout(10000),
+            }
+        );
+
+        if (!ytRes.ok) return null;
+        const data: any = await ytRes.json();
+
+        // Extract audio formats from adaptiveFormats
+        const formats = data?.streamingData?.adaptiveFormats || [];
+        const audioFormats = formats.filter((f: any) =>
+            f.mimeType?.startsWith('audio/') && f.url
+        );
+        if (audioFormats.length === 0) return null;
+
+        // Pick best bitrate audio
+        const best = audioFormats.sort((a: any, b: any) =>
+            (parseInt(b.bitrate) || 0) - (parseInt(a.bitrate) || 0)
+        )[0];
+
+        return best.url;
+    } catch (_) {
+        return null;
+    }
+}
+
 async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
     try {
         const query = encodeURIComponent(`${track.artist || ''} - ${track.title || ''}`.trim());
@@ -200,8 +271,20 @@ async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
                 if (audios.length) {
                     const best = audios.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
                     if (best?.url) {
-                        // Piped returns relative URLs like /videoplayback?... — resolve to absolute
-                        const audioUrl = best.url.startsWith('http') ? best.url : new URL(best.url, base).href;
+                        // Piped returns relative URLs. The API is on `pipedapi.x.com` or
+                        // `api.piped.x.com` but the video proxy is on `piped.x.com`.
+                        // Derive the proxy base from the API base.
+                        let proxyBase = base;
+                        try {
+                            const u = new URL(base);
+                            if (u.hostname.startsWith('pipedapi.')) {
+                                u.hostname = u.hostname.replace('pipedapi.', 'piped.');
+                            } else if (u.hostname.startsWith('api.piped.')) {
+                                u.hostname = u.hostname.replace('api.piped.', 'piped.');
+                            }
+                            proxyBase = u.origin;
+                        } catch (_) { /* keep original base */ }
+                        const audioUrl = best.url.startsWith('http') ? best.url : new URL(best.url, proxyBase).href;
                         return audioUrl;
                     }
                 }
@@ -305,8 +388,12 @@ export async function POST(request: Request) {
             }
         }
 
-        // 3. YouTube fallback
-        const yt = (await youtubeStream(track)) || (await fetchOnlineYouTubeStream(track));
+        // 3. YouTube fallback — try direct InnerTube API with user's cookie first,
+        //    then fall back to Piped/Invidious instances
+        const ytCookie = request.headers.get('x-youtube-cookie') || '';
+        const yt = (await youtubeStream(track))
+            || (ytCookie ? await youtubeDirectWithCookie(track, ytCookie) : null)
+            || (await fetchOnlineYouTubeStream(track));
         if (yt) return Response.json({ url: yt, source: 'youtube', quality: 'AAC/Opus (YouTube Music)' });
 
         return Response.json({

@@ -844,6 +844,10 @@
                     if (stashKey) {
                         headers['x-arcod-stash-key'] = stashKey;
                     }
+                    const ytCookie = localStorage.getItem('creds_youtube_cookie');
+                    if (ytCookie) {
+                        headers['x-youtube-cookie'] = ytCookie;
+                    }
 
                     const res = await fetch('/api/stream/resolve', {
                         method: 'POST',
