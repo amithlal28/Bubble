@@ -858,6 +858,14 @@
                             return { error: 'youtube_disabled' };
                         }
                         if (data.url) return data;
+                    } else {
+                        // Log the server error for debugging
+                        try {
+                            const errData = await res.json();
+                            console.warn('[Web Music] Stream resolve failed (' + res.status + '):', errData.error || 'unknown');
+                        } catch (_) {
+                            console.warn('[Web Music] Stream resolve failed with status', res.status);
+                        }
                     }
                 } catch (e) {
                     console.error('[Web Music] getStreamUrl error:', e);

@@ -167,12 +167,17 @@ function findYtDlp() {
 async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
     try {
         const query = encodeURIComponent(`${track.artist || ''} - ${track.title || ''}`.trim());
+        if (!query || query === '-') return null;
+
+        // Piped API instances (privacy-friendly YouTube frontend)
         const pipedInstances = [
             'https://pipedapi.kavin.rocks',
-            'https://api.piped.private.coffee',
+            'https://pipedapi.adminforge.de',
             'https://pipedapi.leptons.xyz',
-            'https://pipedapi.astartes.cloud'
+            'https://api.piped.private.coffee',
+            'https://pipedapi.astartes.cloud',
         ];
+
         for (const base of pipedInstances) {
             try {
                 const sr = await fetch(`${base}/search?q=${query}&filter=videos`, { signal: AbortSignal.timeout(4000) });
