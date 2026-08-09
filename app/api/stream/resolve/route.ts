@@ -171,13 +171,17 @@ async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
 
         // Piped API instances (privacy-friendly YouTube frontend)
         const pipedInstances = [
+            'https://api.piped.private.coffee',
             'https://pipedapi.kavin.rocks',
             'https://pipedapi.adminforge.de',
             'https://pipedapi.leptons.xyz',
-            'https://api.piped.private.coffee',
             'https://pipedapi.astartes.cloud',
+            'https://pipedapi.syncpundit.io',
+            'https://pipedapi.moomoo.me',
+            'https://pipedapi.smnz.de',
         ];
 
+        // Try Piped first
         for (const base of pipedInstances) {
             try {
                 const sr = await fetch(`${base}/search?q=${query}&filter=videos`, { signal: AbortSignal.timeout(4000) });
@@ -197,6 +201,38 @@ async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
                     const best = audios.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
                     if (best?.url) {
                         // Piped returns relative URLs like /videoplayback?... — resolve to absolute
+                        const audioUrl = best.url.startsWith('http') ? best.url : new URL(best.url, base).href;
+                        return audioUrl;
+                    }
+                }
+            } catch (e) { }
+        }
+
+        // Fallback: Invidious instances
+        const invidiousInstances = [
+            'https://inv.nadeko.net',
+            'https://invidious.fdn.fr',
+            'https://invidious.privacyredirect.com',
+            'https://vid.puffyan.us',
+            'https://yewtu.be',
+        ];
+        for (const base of invidiousInstances) {
+            try {
+                const sr = await fetch(`${base}/api/v1/search?q=${query}&type=video`, { signal: AbortSignal.timeout(4000) });
+                if (!sr.ok) continue;
+                const items: any[] = await sr.json();
+                const first = items.find((it: any) => it.videoId || it.url);
+                if (!first) continue;
+                const videoId = first.videoId || (first.url ? first.url.split('v=')[1] : '');
+                if (!videoId) continue;
+
+                const vr = await fetch(`${base}/api/v1/videos/${videoId}`, { signal: AbortSignal.timeout(5000) });
+                if (!vr.ok) continue;
+                const vd: any = await vr.json();
+                const audios = vd.adaptiveFormats?.filter((f: any) => f.type?.startsWith('audio')) || [];
+                if (audios.length) {
+                    const best = audios.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+                    if (best?.url) {
                         const audioUrl = best.url.startsWith('http') ? best.url : new URL(best.url, base).href;
                         return audioUrl;
                     }
