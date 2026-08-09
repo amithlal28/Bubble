@@ -83,7 +83,8 @@ export async function spotifyFetch(url: string, options: any = {}) {
     const fetchOptions: any = {
         method: options.method || 'GET',
         headers,
-        redirect: 'follow'
+        redirect: 'follow',
+        cache: 'no-store'
     };
     if (options.body !== undefined) {
         fetchOptions.body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
@@ -612,6 +613,8 @@ export async function spotifyGetPlaylists(authInput: any, limit = 50, offset = 0
                     is_synced: 1,
                     sync_mode: 'refresh'
                 }));
+            } else {
+                console.warn('[Spotify Playlists] Failed to fetch:', res.status, res.data);
             }
         } catch (e: any) {
             console.warn('[Spotify Playlists] OAuth error:', e.message);
@@ -765,7 +768,7 @@ export async function spotifyGetLikedSongs(authInput: any, limit = 50, offset = 
     if (userToken) {
         try {
             const res = await spotifyFetch(
-                `https://api.spotify.com/v1/me/tracks?limit=${limit}&offset=${offset}&market=from_token`,
+                `https://api.spotify.com/v1/me/tracks?limit=${limit}&offset=${offset}`,
                 { headers: { 'Authorization': `Bearer ${userToken}`, 'Accept': 'application/json' } }
             );
             if (res.status === 200 && res.data && Array.isArray(res.data.items)) {
@@ -786,6 +789,8 @@ export async function spotifyGetLikedSongs(authInput: any, limit = 50, offset = 
                             is_liked: 1
                         };
                     });
+            } else {
+                console.warn('[Spotify Liked Songs] Failed to fetch:', res.status, res.data);
             }
         } catch (e: any) {
             console.warn('[Spotify Liked Songs] OAuth error:', e.message);
