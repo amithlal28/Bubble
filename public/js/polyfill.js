@@ -493,49 +493,49 @@
 
             }
 
-                // Manual cookie form submit
-                form.onsubmit = async (e) => {
-                    e.preventDefault();
-                    const cookieVal = (cookieInput.value || '').trim();
-                    if (!cookieVal) {
-                        showStatus('Please enter your sp_dc cookie value.', true, false);
-                        return;
+            // Manual cookie form submit
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                const cookieVal = (cookieInput.value || '').trim();
+                if (!cookieVal) {
+                    showStatus('Please enter your sp_dc cookie value.', true, false);
+                    return;
+                }
+
+                showStatus('Verifying session cookie...', false, false);
+                const submitBtn = document.getElementById('spotify-cookie-submit-btn');
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.7';
+
+                try {
+                    const res = await fetch('/api/spotify/profile', {
+                        headers: { 'x-spotify-cookie': cookieVal }
+                    });
+
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}));
+                        throw new Error(errData.error || 'Failed to authenticate with Spotify session cookie.');
                     }
 
-                    showStatus('Verifying session cookie...', false, false);
-                    const submitBtn = document.getElementById('spotify-cookie-submit-btn');
-                    submitBtn.disabled = true;
-                    submitBtn.style.opacity = '0.7';
-
-                    try {
-                        const res = await fetch('/api/spotify/profile', {
-                            headers: { 'x-spotify-cookie': cookieVal }
-                        });
-
-                        if (!res.ok) {
-                            const errData = await res.json().catch(() => ({}));
-                            throw new Error(errData.error || 'Failed to authenticate with Spotify session cookie.');
-                        }
-
-                        const profile = await res.json();
-                        if (!profile || !profile.id) {
-                            throw new Error('Spotify profile could not be verified.');
-                        }
-
-                        localStorage.setItem('creds_spotify_cookie', cookieVal);
-                        if (window.BubbleSpotify) {
-                            window.BubbleSpotify.connected = true;
-                        }
-                        syncIntegrationsToServer();
-                        showStatus(`Connected as <strong>${profile.display_name || profile.id}</strong>!`, false, true);
-                        setTimeout(() => closeModal({ success: true, profile }), 800);
-                    } catch (err) {
-                        showStatus(err.message || 'Verification failed. Please check the sp_dc value.', true, false);
-                        submitBtn.disabled = false;
-                        submitBtn.style.opacity = '1';
+                    const profile = await res.json();
+                    if (!profile || !profile.id) {
+                        throw new Error('Spotify profile could not be verified.');
                     }
-                };
-            });
+
+                    localStorage.setItem('creds_spotify_cookie', cookieVal);
+                    if (window.BubbleSpotify) {
+                        window.BubbleSpotify.connected = true;
+                    }
+                    syncIntegrationsToServer();
+                    showStatus(`Connected as <strong>${profile.display_name || profile.id}</strong>!`, false, true);
+                    setTimeout(() => closeModal({ success: true, profile }), 800);
+                } catch (err) {
+                    showStatus(err.message || 'Verification failed. Please check the sp_dc value.', true, false);
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                }
+            };
+        });
     }
 
     var stashPolyfill = {

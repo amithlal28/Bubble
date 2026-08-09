@@ -4,50 +4,50 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 BubbleRouter.register('artist', async (container, params) => {
-    const artistName = params.name || '';
-    const artworkUrl = params.artwork || '';
+  const artistName = params.name || '';
+  const artworkUrl = params.artwork || '';
 
-    if (!artistName) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-title">No artist specified</div></div>';
-        return;
-    }
+  if (!artistName) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-title">No artist specified</div></div>';
+    return;
+  }
 
-    // Show loading
-    container.innerHTML = `
+  // Show loading
+  container.innerHTML = `
     <div style="text-align:center;padding:var(--space-3xl)">
       <div class="spinner" style="width:32px;height:32px;margin:0 auto var(--space-md);border-width:3px"></div>
       <div style="color:var(--text-secondary)">Loading artist tracks...</div>
     </div>
   `;
 
-    // Search ARCOD for this artist's tracks
-    let tracks = [];
-    try {
-        tracks = (typeof stash !== 'undefined') ? await stash.music.search(artistName).catch(() => []) : [];
-        tracks = tracks || [];
-    } catch (e) {
-        tracks = [];
-    }
+  // Search ARCOD for this artist's tracks
+  let tracks = [];
+  try {
+    tracks = (typeof stash !== 'undefined') ? await stash.music.search(artistName).catch(() => []) : [];
+    tracks = tracks || [];
+  } catch (e) {
+    tracks = [];
+  }
 
-    // Save tracks to DB for playback
-    for (const t of tracks) {
-        await BubbleDB.upsertTrack(t).catch(() => { });
-    }
-    window.__artistTracks = tracks;
+  // Save tracks to DB for playback
+  for (const t of tracks) {
+    await BubbleDB.upsertTrack(t).catch(() => { });
+  }
+  window.__artistTracks = tracks;
 
-    const totalDuration = tracks.reduce((s, t) => s + (t.duration || 0), 0);
-    // Count unique albums
-    const albumSet = new Set(tracks.map(t => t.album).filter(Boolean));
+  const totalDuration = tracks.reduce((s, t) => s + (t.duration || 0), 0);
+  // Count unique albums
+  const albumSet = new Set(tracks.map(t => t.album).filter(Boolean));
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div style="display:flex;gap:var(--space-2xl);align-items:flex-start;flex-wrap:wrap;padding-bottom:var(--space-2xl)">
       <!-- Artist Image -->
       <div style="flex-shrink:0">
         <div style="width:240px;height:240px;border-radius:50%;overflow:hidden;background:var(--bg-elevated);box-shadow:0 8px 40px rgba(0,0,0,0.5)">
           ${artworkUrl
-            ? `<img src="${artworkUrl}" alt="" style="width:100%;height:100%;object-fit:cover">`
-            : `<div class="artwork-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M12 16c-3 0-6 2-6 4h12c0-2-3-4-6-4z"/></svg></div>`
-        }
+      ? `<img src="${artworkUrl}" alt="" style="width:100%;height:100%;object-fit:cover">`
+      : `<div class="artwork-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M12 16c-3 0-6 2-6 4h12c0-2-3-4-6-4z"/></svg></div>`
+    }
         </div>
       </div>
 
@@ -95,10 +95,10 @@ BubbleRouter.register('artist', async (container, params) => {
 });
 
 function renderArtistTrackRow(t, i) {
-    const current = BubblePlayer.getCurrentTrack();
-    const isPlaying = current && current.id === t.id;
-    const encoded = encTrack(t);
-    return `
+  const current = BubblePlayer.getCurrentTrack();
+  const isPlaying = current && current.id === t.id;
+  const encoded = encTrack(t);
+  return `
     <div class="track-row ${isPlaying ? 'playing' : ''}" style="cursor:pointer" onclick="if(window.__artistTracks){BubblePlayer.setQueue(window.__artistTracks,${i})}">
       <div class="track-number">
         <span class="num-text">${isPlaying ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)"><rect x="4" y="4" width="3" height="16" rx="1"><animate attributeName="height" values="16;6;16" dur="0.9s" repeatCount="indefinite"/></rect></svg>' : (i + 1)}</span>

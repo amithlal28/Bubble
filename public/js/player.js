@@ -10,7 +10,7 @@
 window.BubblePlayer = (() => {
   let currentTrack = null;
   let sound = null;
-  let masterAudio = null; // Master singleton HTMLAudioElement
+  let masterAudio = typeof window !== 'undefined' ? new Audio() : null; // Master singleton HTMLAudioElement
   let queue = [];
   let originalQueue = [];
   let queueIndex = -1;
@@ -115,7 +115,6 @@ window.BubblePlayer = (() => {
         masterAudio.removeAttribute('src');
         masterAudio.load();
       } catch (e) { /* ignore */ }
-      masterAudio = null;
     }
   }
 
@@ -252,8 +251,8 @@ window.BubblePlayer = (() => {
 
     // Initialize the master HTMLAudioElement
     stopAllAudio(); // Ensure clean slate before instantiating
-    const audio = new Audio();
-    masterAudio = audio;
+    if (!masterAudio) masterAudio = new Audio();
+    const audio = masterAudio;
     audio.preload = 'auto';
     audio.volume = volume;
     audio.src = src;

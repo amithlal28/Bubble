@@ -421,27 +421,27 @@ function onEQSliderChange(idx, val) {
 }
 
 window.deleteBubbleAccount = async () => {
-    const confirm1 = confirm("Are you sure you want to permanently delete your Bubble account? This action cannot be undone.");
-    if (!confirm1) return;
-    const confirm2 = confirm("Please confirm again. ALL your synced library data and integrations will be permanently wiped.");
-    if (!confirm2) return;
+  const confirm1 = confirm("Are you sure you want to permanently delete your Bubble account? This action cannot be undone.");
+  if (!confirm1) return;
+  const confirm2 = confirm("Please confirm again. ALL your synced library data and integrations will be permanently wiped.");
+  if (!confirm2) return;
 
-    BubbleApp.toast("Initiating account deletion...", "info");
-    try {
-        const res = await fetch('/api/auth/delete-account', { method: 'DELETE' });
-        if (res.ok) {
-            BubbleApp.toast("Account deleted successfully.", "success");
-            if (window.BubbleAPI && window.BubbleAPI.auth) {
-                await window.BubbleAPI.auth.signOut();
-            } else {
-                localStorage.removeItem('supabase.auth.token');
-            }
-            window.location.reload();
-        } else {
-            const data = await res.json().catch(() => ({}));
-            BubbleApp.toast("Failed to delete account: " + (data.error || "Unknown error"), "error");
-        }
-    } catch (e) {
-        BubbleApp.toast("Network error while deleting account.", "error");
+  BubbleApp.toast("Initiating account deletion...", "info");
+  try {
+    const res = await fetch('/api/auth/delete-account', { method: 'DELETE' });
+    if (res.ok) {
+      BubbleApp.toast("Account deleted successfully.", "success");
+      if (window.BubbleAPI && window.BubbleAPI.auth) {
+        await window.BubbleAPI.auth.signOut();
+      } else {
+        localStorage.removeItem('supabase.auth.token');
+      }
+      window.location.reload();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      BubbleApp.toast("Failed to delete account: " + (data.error || "Unknown error"), "error");
     }
+  } catch (e) {
+    BubbleApp.toast("Network error while deleting account.", "error");
+  }
 };

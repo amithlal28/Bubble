@@ -156,26 +156,6 @@ export default function HomePage() {
                 )}
             </header>
 
-            <div style={{ position: 'fixed', bottom: 10, left: 10, zIndex: 9999, background: 'rgba(255,0,0,0.8)', padding: '10px', color: 'white', fontSize: '12px', fontFamily: 'monospace' }}>
-                <div id="debug-bubble-app">BubbleApp: ?</div>
-                <div id="debug-bubble-router">BubbleRouter: ?</div>
-                <div id="debug-error-log">Errors:</div>
-                <script dangerouslySetInnerHTML={{
-                    __html: `
-                        window.addEventListener('error', e => {
-                            const d = document.getElementById('debug-error-log');
-                            if(d) d.innerHTML += '<br>' + e.message;
-                        });
-                        setInterval(() => {
-                            const a = document.getElementById('debug-bubble-app');
-                            if(a) a.innerText = 'BubbleApp: ' + typeof window.BubbleApp;
-                            const r = document.getElementById('debug-bubble-router');
-                            if(r) r.innerText = 'BubbleRouter: ' + typeof window.BubbleRouter;
-                        }, 1000);
-                    `
-                }} />
-            </div>
-
             {/* ═══ Main App Layout (1:1 parity with Desktop index.html) ═══ */}
             <div id="app-container" className="app-container" ref={containerRef}>
                 {/* ── Sidebar ── */}

@@ -4,56 +4,56 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 BubbleRouter.register('album', async (container, params) => {
-    const albumName = params.name || '';
-    const artistName = params.artist || '';
-    const artworkUrl = params.artwork || '';
+  const albumName = params.name || '';
+  const artistName = params.artist || '';
+  const artworkUrl = params.artwork || '';
 
-    if (!albumName) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-title">No album specified</div></div>';
-        return;
-    }
+  if (!albumName) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-title">No album specified</div></div>';
+    return;
+  }
 
-    // Show loading
-    container.innerHTML = `
+  // Show loading
+  container.innerHTML = `
     <div style="text-align:center;padding:var(--space-3xl)">
       <div class="spinner" style="width:32px;height:32px;margin:0 auto var(--space-md);border-width:3px"></div>
       <div style="color:var(--text-secondary)">Loading album tracks...</div>
     </div>
   `;
 
-    // Search ARCOD for this album's tracks
-    const query = artistName ? `${artistName} ${albumName}` : albumName;
-    let tracks = [];
-    try {
-        const results = (typeof stash !== 'undefined') ? await stash.music.search(query).catch(() => []) : [];
-        tracks = (results || []).filter(t =>
-            t.album && t.album.toLowerCase() === albumName.toLowerCase()
-        );
-        // Fallback: if no exact album match, use all results
-        if (tracks.length === 0 && results && results.length > 0) {
-            tracks = results;
-        }
-    } catch (e) {
-        tracks = [];
+  // Search ARCOD for this album's tracks
+  const query = artistName ? `${artistName} ${albumName}` : albumName;
+  let tracks = [];
+  try {
+    const results = (typeof stash !== 'undefined') ? await stash.music.search(query).catch(() => []) : [];
+    tracks = (results || []).filter(t =>
+      t.album && t.album.toLowerCase() === albumName.toLowerCase()
+    );
+    // Fallback: if no exact album match, use all results
+    if (tracks.length === 0 && results && results.length > 0) {
+      tracks = results;
     }
+  } catch (e) {
+    tracks = [];
+  }
 
-    // Save tracks to DB for playback
-    for (const t of tracks) {
-        await BubbleDB.upsertTrack(t).catch(() => { });
-    }
-    window.__albumTracks = tracks;
+  // Save tracks to DB for playback
+  for (const t of tracks) {
+    await BubbleDB.upsertTrack(t).catch(() => { });
+  }
+  window.__albumTracks = tracks;
 
-    const totalDuration = tracks.reduce((s, t) => s + (t.duration || 0), 0);
+  const totalDuration = tracks.reduce((s, t) => s + (t.duration || 0), 0);
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div style="display:flex;gap:var(--space-2xl);align-items:flex-start;flex-wrap:wrap;padding-bottom:var(--space-2xl)">
       <!-- Album Artwork -->
       <div style="flex-shrink:0">
         <div style="width:240px;height:240px;border-radius:var(--radius-lg);overflow:hidden;background:var(--bg-elevated);box-shadow:0 8px 40px rgba(0,0,0,0.5)">
           ${artworkUrl
-            ? `<img src="${artworkUrl}" alt="" style="width:100%;height:100%;object-fit:cover">`
-            : `<div class="artwork-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="12" cy="12" r="5"/></svg></div>`
-        }
+      ? `<img src="${artworkUrl}" alt="" style="width:100%;height:100%;object-fit:cover">`
+      : `<div class="artwork-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="12" cy="12" r="5"/></svg></div>`
+    }
         </div>
       </div>
 
@@ -103,10 +103,10 @@ BubbleRouter.register('album', async (container, params) => {
 });
 
 function renderAlbumTrackRow(t, i) {
-    const current = BubblePlayer.getCurrentTrack();
-    const isPlaying = current && current.id === t.id;
-    const encoded = encTrack(t);
-    return `
+  const current = BubblePlayer.getCurrentTrack();
+  const isPlaying = current && current.id === t.id;
+  const encoded = encTrack(t);
+  return `
     <div class="track-row ${isPlaying ? 'playing' : ''}" style="cursor:pointer" onclick="if(window.__albumTracks){BubblePlayer.setQueue(window.__albumTracks,${i})}">
       <div class="track-number">
         <span class="num-text">${isPlaying ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent)"><rect x="4" y="4" width="3" height="16" rx="1"><animate attributeName="height" values="16;6;16" dur="0.9s" repeatCount="indefinite"/></rect></svg>' : (i + 1)}</span>
