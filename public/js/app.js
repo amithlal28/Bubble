@@ -5,25 +5,25 @@
 
 window.deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    window.deferredPrompt = e;
-    // Show install button if it exists
-    const installBtn = document.getElementById('btn-pwa-install');
-    if (installBtn) installBtn.style.display = 'inline-flex';
+  e.preventDefault();
+  window.deferredPrompt = e;
+  // Show install button if it exists
+  const installBtn = document.getElementById('btn-pwa-install');
+  if (installBtn) installBtn.style.display = 'inline-flex';
 });
 
 window.installPWA = async () => {
-    if (window.deferredPrompt) {
-        window.deferredPrompt.prompt();
-        const { outcome } = await window.deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-            window.deferredPrompt = null;
-            const installBtn = document.getElementById('btn-pwa-install');
-            if (installBtn) installBtn.style.display = 'none';
-        }
-    } else {
-        BubbleApp.toast("Web app is already installed or installation is not supported by your browser.", "info");
+  if (window.deferredPrompt) {
+    window.deferredPrompt.prompt();
+    const { outcome } = await window.deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      window.deferredPrompt = null;
+      const installBtn = document.getElementById('btn-pwa-install');
+      if (installBtn) installBtn.style.display = 'none';
     }
+  } else {
+    BubbleApp.toast("Web app is already installed or installation is not supported by your browser.", "info");
+  }
 };
 
 window.BubbleApp = (() => {
@@ -784,7 +784,7 @@ window.BubbleApp = (() => {
       if (btn) btn.classList.toggle('liked', isLiked === 1);
       if (npBtn) npBtn.classList.toggle('liked', isLiked === 1);
     }
-    
+
     // Update any dynamically rendered like buttons
     document.querySelectorAll(`[data-track-like-btn="${trackId}"]`).forEach(b => {
       b.style.color = isLiked ? 'var(--accent)' : 'var(--text-secondary)';
