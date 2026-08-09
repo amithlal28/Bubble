@@ -11,21 +11,27 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 let _arcodSession: any = null;
 let _arcodPromise: any = null;
 
+// Initial static fallback from user provided token
+const DEFAULT_REFRESH_TOKEN = 'xmmuolcmjru7';
+
 async function getArcodSession() {
     if (_arcodSession && _arcodSession.expiresAt > Date.now() + 60000) return _arcodSession;
     if (_arcodPromise) return _arcodPromise;
     _arcodPromise = (async () => {
         try {
-            const res = await fetch(`${ARCOD_SUPABASE_URL}/auth/v1/signup`, {
+            const rt = _arcodSession?.refreshToken || DEFAULT_REFRESH_TOKEN;
+            const res = await fetch(`${ARCOD_SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': ARCOD_ANON_KEY },
-                body: JSON.stringify({ email: `wb_${Date.now()}@bbl.local`, password: 'bbl-web-stream' }),
+                body: JSON.stringify({ refresh_token: rt }),
             });
             if (res.ok) {
                 const d: any = await res.json();
                 _arcodSession = { accessToken: d.access_token, refreshToken: d.refresh_token, expiresAt: Date.now() + (d.expires_in || 3600) * 1000 };
                 return _arcodSession;
+            } else {
+                console.warn('[ARCOD] Refresh failed:', res.status, await res.text());
             }
-        } catch (e: any) { console.warn('[ARCOD] Auth:', e.message); }
+        } catch (e: any) { console.warn('[ARCOD] Auth Error:', e.message); }
         _arcodPromise = null;
         return null;
     })();
@@ -160,7 +166,7 @@ async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
                 if (!first) continue;
                 const videoId = first.url ? first.url.replace('/watch?v=', '') : (first.id || '');
                 if (!videoId) continue;
-                
+
                 const vr = await fetch(`${base}/streams/${videoId}`, { signal: AbortSignal.timeout(5000) });
                 if (!vr.ok) continue;
                 const vd: any = await vr.json();
@@ -169,9 +175,9 @@ async function fetchOnlineYouTubeStream(track: any): Promise<string | null> {
                     const best = audios.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
                     if (best?.url) return best.url;
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
-    } catch {}
+    } catch { }
     return null;
 }
 
@@ -205,7 +211,7 @@ export async function POST(request: Request) {
             let results: any[] = [];
             const cleanQuery = `${track.title || ''} ${track.artist || ''}`.replace(/\s+/g, ' ').trim();
             const simpleQuery = `${(track.title || '').split('(')[0].trim()} ${(track.artist || '').split(',')[0].trim()}`.trim();
-            
+
             results = await searchArcod(cleanQuery, activeToken);
             if (!results.length && simpleQuery !== cleanQuery) {
                 results = await searchArcod(simpleQuery, activeToken);
