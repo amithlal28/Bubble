@@ -4,15 +4,15 @@
    Loaded BEFORE other JS modules so they don't crash when accessing stash.
    ═══════════════════════════════════════════════════════════════════ */
 
-;(function() {
-  // Always define stash on web.  The Electron app provides its own `stash`
-  // and does NOT load this polyfill, so it is safe to overwrite anything
-  // that may have leaked into the global scope (e.g. from a bundler).
-  if (typeof stash !== 'undefined') {
-    console.warn('[Bubble Web] Global "stash" already defined — overwriting with polyfill');
-  }
+; (function () {
+    // Always define stash on web.  The Electron app provides its own `stash`
+    // and does NOT load this polyfill, so it is safe to overwrite anything
+    // that may have leaked into the global scope (e.g. from a bundler).
+    if (typeof stash !== 'undefined') {
+        console.warn('[Bubble Web] Global "stash" already defined — overwriting with polyfill');
+    }
 
-  // Helper to extract session data
+    // Helper to extract session data
     function getStoredArcodSession() {
         try {
             const raw = localStorage.getItem('creds_arcod_session');
@@ -200,7 +200,7 @@
                 try {
                     // Accept a raw token or a JSON block that they copied
                     let sessionObj = { accessToken: tokenVal, expiresAt: Date.now() + 86400000 };
-                    
+
                     if (tokenVal.startsWith('{')) {
                         const parsed = JSON.parse(tokenVal);
                         sessionObj = {
@@ -432,108 +432,110 @@
             // OAuth Button click
             if (oauthBtn) {
                 oauthBtn.onclick = async () => {
-                showStatus('Opening Spotify authorization window...', false, false);
-                oauthBtn.disabled = true;
-                oauthBtn.style.opacity = '0.7';
+                    showStatus('Opening Spotify authorization window...', false, false);
+                    oauthBtn.disabled = true;
+                    oauthBtn.style.opacity = '0.7';
 
-                const storedClientId = localStorage.getItem('creds_spotify_client_id') || '';
-                const storedClientSecret = localStorage.getItem('creds_spotify_client_secret') || '';
+                    const storedClientId = localStorage.getItem('creds_spotify_client_id') || '';
+                    const storedClientSecret = localStorage.getItem('creds_spotify_client_secret') || '';
 
-                let authUrl = '';
-                try {
-                    const headers = {};
-                    if (storedClientId) headers['x-spotify-client-id'] = storedClientId;
-                    if (storedClientSecret) headers['x-spotify-client-secret'] = storedClientSecret;
+                    let authUrl = '';
+                    try {
+                        const headers = {};
+                        if (storedClientId) headers['x-spotify-client-id'] = storedClientId;
+                        if (storedClientSecret) headers['x-spotify-client-secret'] = storedClientSecret;
 
-                    const res = await fetch('/api/spotify/auth?action=url', { headers });
-                    const data = await res.json();
-                    if (data.url) authUrl = data.url;
-                } catch (e) { }
+                        const res = await fetch('/api/spotify/auth?action=url', { headers });
+                        const data = await res.json();
+                        if (data.url) authUrl = data.url;
+                    } catch (e) { }
 
-                if (!authUrl) {
-                    const clientId = storedClientId || '5f573c9620494bae87890c0f08a60293';
-                    const redirectUri = `${window.location.origin}/auth/spotify/callback`;
-                    const scopes = [
-                        'user-read-private',
-                        'user-read-email',
-                        'playlist-read-private',
-                        'playlist-read-collaborative',
-                        'user-library-read',
-                        'user-library-modify',
-                        'user-top-read',
-                        'user-read-recently-played'
-                    ].join(' ');
-                    authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&show_dialog=true`;
+                    if (!authUrl) {
+                        const clientId = storedClientId || '5f573c9620494bae87890c0f08a60293';
+                        const redirectUri = `${window.location.origin}/auth/spotify/callback`;
+                        const scopes = [
+                            'user-read-private',
+                            'user-read-email',
+                            'playlist-read-private',
+                            'playlist-read-collaborative',
+                            'user-library-read',
+                            'user-library-modify',
+                            'user-top-read',
+                            'user-read-recently-played'
+                        ].join(' ');
+                        authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&show_dialog=true`;
+                    }
+
+                    const width = 520;
+                    const height = 720;
+                    const left = window.screenX + (window.outerWidth - width) / 2;
+                    const top = window.screenY + (window.outerHeight - height) / 2;
+                    const popup = window.open(authUrl, 'SpotifyAuthWindow', `width=${width},height=${height},left=${left},top=${top},status=0,toolbar=0,menubar=0,location=1`);
+
+                    showStatus('Waiting for authorization to complete in the popup...', false, false);
+
+                    pollTimer = setInterval(async () => {
+                        if (popup && popup.closed) {
+                            clearInterval(pollTimer);
+                            const token = localStorage.getItem('creds_spotify_token');
+                            if (token) {
+                                if (window.BubbleSpotify) window.BubbleSpotify.connected = true;
+                                showStatus('Connected successfully!', false, true);
+                                setTimeout(() => closeModal({ success: true }), 600);
+                            } else {
+                                oauthBtn.disabled = false;
+                                oauthBtn.style.opacity = '1';
+                                showStatus(`If Spotify showed "redirect_uri mismatch", click <strong>Custom Spotify App</strong> above to input your App Client ID with redirect URI: <br><code>${window.location.origin}/auth/spotify/callback</code>`, true, false);
+                            }
+                        }
+                    }, 1000);
                 }
 
-                const width = 520;
-                const height = 720;
-                const left = window.screenX + (window.outerWidth - width) / 2;
-                const top = window.screenY + (window.outerHeight - height) / 2;
-                const popup = window.open(authUrl, 'SpotifyAuthWindow', `width=${width},height=${height},left=${left},top=${top},status=0,toolbar=0,menubar=0,location=1`);
-
-                showStatus('Waiting for authorization to complete in the popup...', false, false);
-
-                pollTimer = setInterval(async () => {
-                    if (popup && popup.closed) {
-                        clearInterval(pollTimer);
-                        const token = localStorage.getItem('creds_spotify_token');
-                        if (token) {
-                            if (window.BubbleSpotify) window.BubbleSpotify.connected = true;
-                            showStatus('Connected successfully!', false, true);
-                            setTimeout(() => closeModal({ success: true }), 600);
-                        } else {
-                            oauthBtn.disabled = false;
-                            oauthBtn.style.opacity = '1';
-                            showStatus(`If Spotify showed "redirect_uri mismatch", click <strong>Custom Spotify App</strong> above to input your App Client ID with redirect URI: <br><code>${window.location.origin}/auth/spotify/callback</code>`, true, false);
-                        }
-                    }
-                }, 1000);
             }
 
-            // Manual cookie form submit
-            form.onsubmit = async (e) => {
-                e.preventDefault();
-                const cookieVal = (cookieInput.value || '').trim();
-                if (!cookieVal) {
-                    showStatus('Please enter your sp_dc cookie value.', true, false);
-                    return;
-                }
-
-                showStatus('Verifying session cookie...', false, false);
-                const submitBtn = document.getElementById('spotify-cookie-submit-btn');
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.7';
-
-                try {
-                    const res = await fetch('/api/spotify/profile', {
-                        headers: { 'x-spotify-cookie': cookieVal }
-                    });
-
-                    if (!res.ok) {
-                        const errData = await res.json().catch(() => ({}));
-                        throw new Error(errData.error || 'Failed to authenticate with Spotify session cookie.');
+                // Manual cookie form submit
+                form.onsubmit = async (e) => {
+                    e.preventDefault();
+                    const cookieVal = (cookieInput.value || '').trim();
+                    if (!cookieVal) {
+                        showStatus('Please enter your sp_dc cookie value.', true, false);
+                        return;
                     }
 
-                    const profile = await res.json();
-                    if (!profile || !profile.id) {
-                        throw new Error('Spotify profile could not be verified.');
-                    }
+                    showStatus('Verifying session cookie...', false, false);
+                    const submitBtn = document.getElementById('spotify-cookie-submit-btn');
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.7';
 
-                    localStorage.setItem('creds_spotify_cookie', cookieVal);
-                    if (window.BubbleSpotify) {
-                        window.BubbleSpotify.connected = true;
+                    try {
+                        const res = await fetch('/api/spotify/profile', {
+                            headers: { 'x-spotify-cookie': cookieVal }
+                        });
+
+                        if (!res.ok) {
+                            const errData = await res.json().catch(() => ({}));
+                            throw new Error(errData.error || 'Failed to authenticate with Spotify session cookie.');
+                        }
+
+                        const profile = await res.json();
+                        if (!profile || !profile.id) {
+                            throw new Error('Spotify profile could not be verified.');
+                        }
+
+                        localStorage.setItem('creds_spotify_cookie', cookieVal);
+                        if (window.BubbleSpotify) {
+                            window.BubbleSpotify.connected = true;
+                        }
+                        syncIntegrationsToServer();
+                        showStatus(`Connected as <strong>${profile.display_name || profile.id}</strong>!`, false, true);
+                        setTimeout(() => closeModal({ success: true, profile }), 800);
+                    } catch (err) {
+                        showStatus(err.message || 'Verification failed. Please check the sp_dc value.', true, false);
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
                     }
-                    syncIntegrationsToServer();
-                    showStatus(`Connected as <strong>${profile.display_name || profile.id}</strong>!`, false, true);
-                    setTimeout(() => closeModal({ success: true, profile }), 800);
-                } catch (err) {
-                    showStatus(err.message || 'Verification failed. Please check the sp_dc value.', true, false);
-                    submitBtn.disabled = false;
-                    submitBtn.style.opacity = '1';
-                }
-            };
-        });
+                };
+            });
     }
 
     var stashPolyfill = {
@@ -827,7 +829,7 @@
                                 session.expiresAt = Date.now() + (data.expires_in * 1000);
                                 saveArcodSession(session);
                             }
-                        } catch(e) { console.warn('[Web Music] ARCOD token refresh failed:', e); }
+                        } catch (e) { console.warn('[Web Music] ARCOD token refresh failed:', e); }
                     }
                     const stashKey = localStorage.getItem('creds_arcod_stashkey') || '';
                     const disableLossless = (await BubbleSettings.get('disable_lossless')) === 'true' || (await BubbleSettings.get('prefer_source')) === 'youtube';
@@ -1075,8 +1077,8 @@
                 return [];
             },
         },
-  };
+    };
 
-  window.stash = stashPolyfill;
-  console.log('[Bubble Web] Stash polyfill ready. ARCOD In-Web Auth enabled.');
+    window.stash = stashPolyfill;
+    console.log('[Bubble Web] Stash polyfill ready. ARCOD In-Web Auth enabled.');
 })();
