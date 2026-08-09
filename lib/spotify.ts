@@ -615,9 +615,11 @@ export async function spotifyGetPlaylists(authInput: any, limit = 50, offset = 0
                 }));
             } else {
                 console.warn('[Spotify Playlists] Failed to fetch:', res.status, res.data);
+                throw new Error(`Spotify API returned HTTP ${res.status}: ${JSON.stringify(res.data)}`);
             }
         } catch (e: any) {
             console.warn('[Spotify Playlists] OAuth error:', e.message);
+            throw e;
         }
     }
 
@@ -791,9 +793,11 @@ export async function spotifyGetLikedSongs(authInput: any, limit = 50, offset = 
                     });
             } else {
                 console.warn('[Spotify Liked Songs] Failed to fetch:', res.status, res.data);
+                throw new Error(`Spotify API returned HTTP ${res.status}: ${JSON.stringify(res.data)}`);
             }
         } catch (e: any) {
             console.warn('[Spotify Liked Songs] OAuth error:', e.message);
+            throw e;
         }
     }
 

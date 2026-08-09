@@ -721,7 +721,10 @@ if (typeof stash === 'undefined') {
                 const headers = await stash.spotify._getHeaders();
                 if (!headers['x-spotify-token'] && !headers['x-spotify-cookie']) return [];
                 const res = await fetch(`/api/spotify/playlists?limit=${limit || 50}&offset=${offset || 0}`, { headers });
-                if (!res.ok) return [];
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`Spotify Playlists failed HTTP ${res.status}: ${text}`);
+                }
                 return res.json();
             },
 
@@ -736,7 +739,10 @@ if (typeof stash === 'undefined') {
                 const headers = await stash.spotify._getHeaders();
                 if (!headers['x-spotify-token'] && !headers['x-spotify-cookie']) return [];
                 const res = await fetch(`/api/spotify/liked?limit=${limit || 50}&offset=${offset || 0}`, { headers });
-                if (!res.ok) return [];
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`Spotify Liked Songs failed HTTP ${res.status}: ${text}`);
+                }
                 return res.json();
             },
 
