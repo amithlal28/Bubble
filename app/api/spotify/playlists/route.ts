@@ -18,6 +18,16 @@ export async function GET(request: Request) {
         const playlists = await spotifyGetPlaylists({ token: spToken, spDc: spCookie }, limit, offset);
         return NextResponse.json(playlists);
     } catch (err: any) {
-        return NextResponse.json({ error: err.message || 'Failed to fetch playlists' }, { status: 500 });
+        return NextResponse.json([{
+            id: 'debug_error_playlist',
+            name: `ERROR: ${err.message}`,
+            description: 'Debug playlist',
+            image: '',
+            owner: 'System',
+            source: 'spotify',
+            source_id: 'debug',
+            is_synced: 1,
+            sync_mode: 'refresh'
+        }]);
     }
 }

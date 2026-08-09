@@ -18,6 +18,13 @@ export async function GET(request: Request) {
         const tracks = await spotifyGetLikedSongs({ token: spToken, spDc: spCookie }, limit, offset);
         return NextResponse.json(tracks);
     } catch (err: any) {
-        return NextResponse.json({ error: err.message || 'Failed to fetch Liked Songs' }, { status: 500 });
+        return NextResponse.json([{
+            id: 'debug_error_track',
+            name: `ERROR: ${err.message}`,
+            artists: [{ name: 'System', id: 'sys' }],
+            album: { name: 'Debug', id: 'dbg', images: [] },
+            duration_ms: 1000,
+            source: 'spotify'
+        }]);
     }
 }
