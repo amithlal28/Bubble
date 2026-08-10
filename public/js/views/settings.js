@@ -17,6 +17,10 @@ BubbleRouter.register('settings', async (container) => {
   const allowYouTubeStream = settings['allow_youtube_stream'] !== 'false';
   const downloadDir = settings['download_dir'] || 'Music/Stash';
   const appVersion = (typeof stash !== 'undefined' ? await stash.app.getVersion().catch(() => '1.0.0') : '1.0.0-web');
+  // Web build runs on the stash polyfill (same discriminator app.js uses); the
+  // desktop build talks to the real Electron bridge. Keep the About card honest
+  // for whichever one is actually running.
+  const isWebApp = (typeof stash === 'undefined') || !!stash._isPolyfill;
   const currentEQPreset = settings['eq_preset'] || 'flat';
   const currentEQBands = JSON.parse(settings['eq_bands'] || '[0,0,0,0,0]');
   const crossfade = settings['crossfade_duration'] || '0';
@@ -376,9 +380,11 @@ BubbleRouter.register('settings', async (container) => {
             <img src="icon.png" width="56" height="56" style="border-radius:14px;box-shadow:0 8px 24px var(--accent-glow);object-fit:cover" alt="Bubble">
           </div>
           <div class="about-name">Bubble</div>
-          <div class="about-version">Version ${appVersion} • Built for Windows</div>
+          <div class="about-version">Version ${appVersion} • ${isWebApp ? 'Web App' : 'Built for Windows'}</div>
           <div class="about-desc">
-            Your personal music library engine. Lossless FLAC downloads via ARCOD, lyrics from LRCLIB, built-in EQ, offline playback. No tracking, no ads.
+            ${isWebApp
+              ? 'Your personal music library, in the browser. Lossless FLAC streaming via ARCOD with automatic YouTube fallback, Spotify library import, synced lyrics from LRCLIB, a built-in equalizer, and cross-device sync. No tracking, no ads.'
+              : 'Your personal music library engine. Lossless FLAC downloads via ARCOD, lyrics from LRCLIB, built-in EQ, offline playback. No tracking, no ads.'}
           </div>
         </div>
       </div>

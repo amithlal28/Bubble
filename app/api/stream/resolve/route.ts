@@ -9,7 +9,36 @@ const ARCOD_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmF
 const ARCOD_API_BASE = 'https://arcod.xyz/api';
 const ARCOD_STASH_BASE = 'https://api.arcod.xyz';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+// Seed client_id. SoundCloud rotates these periodically, so we also scrape a
+// fresh one from their public web bundle on demand (see getSoundCloudClientId).
 const SOUNDCLOUD_CLIENT_ID = 'iZIs9mchVcX5lhVRyQGGAYlNPVldzAoX';
+// Warm-instance cache for a scraped client_id (survives while the lambda is warm).
+let scClientId: string | null = null;
+
+// Self-healing SoundCloud auth: pull a live client_id out of soundcloud.com's JS
+// bundles (the same trick yt-dlp uses). Returns null if the scrape fails, in
+// which case callers fall back to the seed id and then to YouTube.
+async function getSoundCloudClientId(): Promise<string | null> {
+    if (scClientId) return scClientId;
+    try {
+        const home = await fetch('https://soundcloud.com/', { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(5000) });
+        if (!home.ok) return null;
+        const html = await home.text();
+        const scripts = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)]
+            .map(m => m[1])
+            .filter(u => u.includes('sndcdn.com') && u.endsWith('.js'));
+        // The client_id lives in one of the later bundles — scan newest first,
+        // capped so a miss can't chew through the serverless time budget.
+        for (const src of scripts.reverse().slice(0, 6)) {
+            try {
+                const js = await (await fetch(src, { signal: AbortSignal.timeout(5000) })).text();
+                const m = js.match(/client_id\s*[:=]\s*["']([a-zA-Z0-9]{32})["']/);
+                if (m) { scClientId = m[1]; console.log('[Stream] scraped fresh SoundCloud client_id'); return scClientId; }
+            } catch { /* try next bundle */ }
+        }
+    } catch { /* network / timeout — caller uses the seed id */ }
+    return null;
+}
 
 // Wrap every upstream media URL so the browser <audio> pulls it same-origin.
 // The proxy injects the headers ARCOD needs and defeats YouTube's IP-locking.
@@ -146,36 +175,50 @@ async function arcodJobStream(trackId: string, title: string, artist: string, us
 // SoundCloud fallback — resolve a progressive transcoding (the old v1
 // `stream_url` field is dead). Returns a CDN URL that needs no auth.
 async function fetchSoundCloudStream(track: any): Promise<string | null> {
-    try {
-        const query = encodeURIComponent(`${track.artist || ''} ${track.title || ''}`.trim());
-        if (!query) return null;
+    const query = encodeURIComponent(`${track.artist || ''} ${track.title || ''}`.trim());
+    if (!query) return null;
 
-        const sr = await fetch(
-            `https://api-v2.soundcloud.com/search/tracks?q=${query}&limit=5&client_id=${SOUNDCLOUD_CLIENT_ID}`,
-            { signal: AbortSignal.timeout(5000) }
-        );
-        if (!sr.ok) return null;
-        const data: any = await sr.json();
-        const tracks = data?.collection || [];
+    // Try the scraped (live) id first, then the seed id. If a request 401s the
+    // id is stale — scrape a fresh one and retry once.
+    const ids = [await getSoundCloudClientId(), SOUNDCLOUD_CLIENT_ID].filter(Boolean) as string[];
+    if (!ids.length) return null;
 
-        const nqt = norm(track.title), nqa = norm(track.artist);
-        let best: any = null, bestS = 0.4;
-        for (const t of tracks) {
-            const s = jaccard(nqt, norm(t.title || '')) * 0.6 + jaccard(nqa, norm(t.user?.username || ''));
-            if (s > bestS) { bestS = s; best = t; }
-        }
-        if (!best) return null;
+    for (let attempt = 0; attempt < ids.length; attempt++) {
+        const cid = ids[attempt];
+        try {
+            const sr = await fetch(
+                `https://api-v2.soundcloud.com/search/tracks?q=${query}&limit=5&client_id=${cid}`,
+                { signal: AbortSignal.timeout(5000) }
+            );
+            if (sr.status === 401 || sr.status === 403) {
+                scClientId = null; // force a re-scrape on the next id/attempt
+                console.warn('[Stream] SoundCloud client_id rejected (401/403), trying next');
+                continue;
+            }
+            if (!sr.ok) return null;
+            const data: any = await sr.json();
+            const tracks = data?.collection || [];
 
-        const transcodings = best?.media?.transcodings || [];
-        const prog = transcodings.find((t: any) => t?.format?.protocol === 'progressive') || transcodings[0];
-        if (!prog?.url) return null;
+            const nqt = norm(track.title), nqa = norm(track.artist);
+            let best: any = null, bestS = 0.4;
+            for (const t of tracks) {
+                const s = jaccard(nqt, norm(t.title || '')) * 0.6 + jaccard(nqa, norm(t.user?.username || ''));
+                if (s > bestS) { bestS = s; best = t; }
+            }
+            if (!best) return null;
 
-        // The transcoding URL returns JSON { url } pointing at the actual CDN file.
-        const rr = await fetch(`${prog.url}?client_id=${SOUNDCLOUD_CLIENT_ID}`, { signal: AbortSignal.timeout(5000) });
-        if (!rr.ok) return null;
-        const rd: any = await rr.json();
-        return rd?.url || null;
-    } catch (_) { }
+            const transcodings = best?.media?.transcodings || [];
+            const prog = transcodings.find((t: any) => t?.format?.protocol === 'progressive') || transcodings[0];
+            if (!prog?.url) return null;
+
+            // The transcoding URL returns JSON { url } pointing at the actual CDN file.
+            const rr = await fetch(`${prog.url}?client_id=${cid}`, { signal: AbortSignal.timeout(5000) });
+            if (!rr.ok) return null;
+            const rd: any = await rr.json();
+            if (rd?.url) return rd.url;
+            return null;
+        } catch (_) { /* try next id */ }
+    }
     return null;
 }
 
@@ -268,7 +311,11 @@ export async function POST(request: Request) {
 
         // ── Gated fallback: only when the user enabled it in settings ──
         if (allowFallback) {
-            const yt = (await fetchSoundCloudStream(track)) || (await fetchOnlineYouTubeStream(track, deadline));
+            console.log(`[Stream] Lossless miss (${arcodError || 'n/a'}) — trying fallback for "${track.artist || ''} - ${track.title || ''}"`);
+            const sc = await fetchSoundCloudStream(track);
+            console.log(`[Stream] SoundCloud fallback: ${sc ? 'HIT' : 'miss'}`);
+            const yt = sc || (await fetchOnlineYouTubeStream(track, deadline));
+            if (!sc) console.log(`[Stream] YouTube/Piped fallback: ${yt ? 'HIT' : 'miss'}`);
             if (yt) {
                 const isSC = yt.includes('soundcloud.com') || yt.includes('sndcdn.com');
                 return Response.json({
@@ -278,6 +325,7 @@ export async function POST(request: Request) {
                     fallback: true,
                 });
             }
+            console.warn('[Stream] All fallback providers returned null (instances down or client_id stale).');
         }
 
         // Nothing lossless, and either fallback was off or also failed. Tell the
