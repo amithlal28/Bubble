@@ -877,10 +877,11 @@
                     }
                     const stashKey = localStorage.getItem('creds_arcod_stashkey') || '';
                     const disableLossless = (await BubbleSettings.get('disable_lossless')) === 'true' || (await BubbleSettings.get('prefer_source')) === 'youtube';
-                    // Strict lossless by default: fallback is opt-in. It only
-                    // runs when the user explicitly enabled it, OR when lossless
-                    // was deliberately disabled (then fallback is the whole point).
-                    const allowFallback = disableLossless || (await BubbleSettings.get('allow_youtube_stream')) === 'true';
+                    // Fallback ON by default: when a track has no lossless source
+                    // we fall back to YouTube unless the user explicitly turned the
+                    // fallback off ('false'). Disabling lossless entirely also forces
+                    // fallback on (it's then the whole point).
+                    const allowFallback = disableLossless || (await BubbleSettings.get('allow_youtube_stream')) !== 'false';
                     const headers = {
                         'Content-Type': 'application/json',
                         'x-disable-lossless': disableLossless ? 'true' : 'false',

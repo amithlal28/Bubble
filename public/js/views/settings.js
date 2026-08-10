@@ -13,8 +13,8 @@ BubbleRouter.register('settings', async (container) => {
   const arcodConnected = arcodStatus.connected;
   const stashKeyConfigured = arcodStatus.stashKeyConfigured;
   const disableLossless = settings['disable_lossless'] === 'true' || settings['prefer_source'] === 'youtube';
-  // Strict lossless by default: fallback is opt-in (must be explicitly 'true').
-  const allowYouTubeStream = settings['allow_youtube_stream'] === 'true';
+  // Fallback ON by default: YouTube fallback is opt-out (only an explicit 'false' disables it).
+  const allowYouTubeStream = settings['allow_youtube_stream'] !== 'false';
   const downloadDir = settings['download_dir'] || 'Music/Stash';
   const appVersion = (typeof stash !== 'undefined' ? await stash.app.getVersion().catch(() => '1.0.0') : '1.0.0-web');
   const currentEQPreset = settings['eq_preset'] || 'flat';
@@ -121,7 +121,7 @@ BubbleRouter.register('settings', async (container) => {
               </div>
             </div>
             <label class="toggle">
-              <input type="checkbox" ${!disableLossless ? 'checked' : ''} onchange="BubbleSettings.set('disable_lossless', this.checked ? 'false' : 'true').then(() => { BubbleApp.toast(this.checked ? 'Lossless FLAC streaming enabled' : 'Lossless turned OFF (YouTube Music source enabled)', 'info'); BubbleRouter.navigate('settings', {force:true}); })">
+              <input type="checkbox" ${!disableLossless ? 'checked' : ''} onchange="toggleLosslessStreaming(this.checked)">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -396,6 +396,22 @@ async function changeDownloadFolder() {
     BubbleApp.toast('Download folder updated', 'success');
   }
 }
+
+// Lossless master toggle. Turning lossless OFF makes YouTube Music the streaming
+// source, so we automatically enable the YouTube fallback at the same time (the
+// user asked for these toggles to move together). Re-enabling lossless leaves the
+// fallback setting untouched so a user's explicit fallback choice is preserved.
+window.toggleLosslessStreaming = async (checked) => {
+  await BubbleSettings.set('disable_lossless', checked ? 'false' : 'true');
+  if (!checked) {
+    await BubbleSettings.set('allow_youtube_stream', 'true');
+  }
+  BubbleApp.toast(
+    checked ? 'Lossless FLAC streaming enabled' : 'Lossless turned OFF — YouTube Music streaming enabled',
+    'info'
+  );
+  BubbleRouter.navigate('settings', { force: true });
+};
 
 function applyEQPreset(preset) {
   const values = BubblePlayer.setEQPreset(preset);
