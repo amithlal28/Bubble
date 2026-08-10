@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
+import { validateStreamUrl } from '@/lib/stream-guard';
 
-const ARCOD_STASH_KEY = process.env.ARCOD_STASH_KEY || 'c2098a5da8cbfae6d3027bcaec873db8748d1e434f4340d4f58adbc04db9b54c';
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
+// Read from env only — fail closed if unset. (The leaked literal was removed;
+// rotate the key in the ARCOD dashboard + set ARCOD_STASH_KEY in Vercel.)
+const ARCOD_STASH_KEY = process.env.ARCOD_STASH_KEY || '';
 
 /**
  * GET /api/stream/proxy?url=...
@@ -12,13 +18,13 @@ export async function GET(request: Request) {
     const audioUrl = searchParams.get('url');
     const token = searchParams.get('token');
 
-    if (!audioUrl) {
-        return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
+    const guard = validateStreamUrl(audioUrl);
+    if (!guard.ok) {
+        return NextResponse.json({ error: `Blocked: ${guard.reason}` }, { status: 400 });
     }
 
     try {
-        // searchParams.get('url') is already properly decoded once. Do NOT double-decode.
-        const targetUrl = audioUrl;
+        const targetUrl = guard.url;
 
         // Forward Range header from the client for seeking and progressive streaming
         const rangeHeader = request.headers.get('range');
@@ -88,12 +94,13 @@ export async function HEAD(request: Request) {
     const { searchParams } = new URL(request.url);
     const audioUrl = searchParams.get('url');
 
-    if (!audioUrl) {
+    const guard = validateStreamUrl(audioUrl);
+    if (!guard.ok) {
         return new Response(null, { status: 400 });
     }
 
     try {
-        const targetUrl = audioUrl;
+        const targetUrl = guard.url;
         const headers: Record<string, string> = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         };

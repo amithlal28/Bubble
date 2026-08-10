@@ -52,13 +52,13 @@ function buildSearchPageHTML(query, currentTab) {
       <div class="search-wrapper" style="margin-top:var(--space-xl);position:relative">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:18px;top:50%;transform:translateY(-50%);color:var(--text-secondary);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="search-input-field" class="search-input" style="padding-left:46px;padding-right:40px;width:100%" placeholder="Search ${currentTab} in Lossless FLAC..." value="${escapeHtml(query)}" autofocus>
-        ${query ? `<button id="search-clear-btn" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:16px">✕</button>` : ''}
+        <button id="search-clear-btn" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:16px;display:${query ? 'block' : 'none'}">✕</button>
       </div>
 
       <div style="display:flex;gap:8px;margin-top:var(--space-md)">
         ${tabs.map(t => {
     const active = currentTab === t.id;
-    return `<button class="btn btn-secondary search-filter-btn${active ? ' active' : ''}" data-filter="${t.id}" style="${active ? 'background:var(--accent);color:#000;font-weight:600' : ''};display:flex;align-items:center;gap:5px" onclick="BubbleRouter.navigate('search',{q:'${escapeHtml(query)}',tab:'${t.id}',force:true})">
+    return `<button class="btn btn-secondary search-filter-btn${active ? ' active' : ''}" data-filter="${t.id}" style="${active ? 'background:var(--accent);color:#000;font-weight:600' : ''};display:flex;align-items:center;gap:5px" onclick="BubbleRouter.navigate('search',{q:(document.getElementById('search-input-field')||{}).value||'',tab:'${t.id}',force:true})">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${t.icon}</svg> ${t.label}
           </button>`;
   }).join('')}
@@ -304,19 +304,45 @@ function setupSearchEvents(currentTab) {
   const clearBtn = document.getElementById('search-clear-btn');
   if (!input) return;
 
+  // Update the address bar WITHOUT a hash navigation. A real navigation makes
+  // the router wipe #view-container to a spinner and rebuild the <input>,
+  // which drops/reorders in-flight keystrokes — the search glitch. replaceState
+  // keeps deep-linking/refresh working without touching the DOM.
+  function syncUrl(q) {
+    const hash = q
+      ? `search?q=${encodeURIComponent(q)}&tab=${encodeURIComponent(currentTab)}`
+      : 'search';
+    try { history.replaceState(null, '', '#' + hash); } catch (_) { }
+  }
+
+  function clearContent() {
+    window._bubbleSearchCache.query = '';
+    window._bubbleSearchCache.results = {};
+    const ca = document.getElementById('search-content');
+    if (ca) ca.innerHTML = '';
+  }
+
   if (clearBtn) {
     clearBtn.onclick = () => {
-      window._bubbleSearchCache.query = '';
-      window._bubbleSearchCache.results = {};
-      BubbleRouter.navigate('search', { q: '', tab: currentTab });
+      input.value = '';
+      clearBtn.style.display = 'none';
+      clearContent();
+      syncUrl('');
+      input.focus();
     };
   }
 
   let debounceTimer;
   input.oninput = (e) => {
+    const value = e.target.value;
+    if (clearBtn) clearBtn.style.display = value ? 'block' : 'none';
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      BubbleRouter.navigate('search', { q: e.target.value, tab: currentTab, force: true });
+      const q = value.trim();
+      syncUrl(q);
+      // Update ONLY the results container — never re-render the whole view.
+      if (q) doSearch(q, currentTab);
+      else clearContent();
     }, 350);
   };
 

@@ -28,6 +28,8 @@ window.BubbleSpotify = (() => {
       const profile = await stash.spotify.getProfile();
       if (profile && profile.id) {
         connected = true;
+        // Only push once the cookie is validated — an invalid one is removed below.
+        if (stash.integrations) stash.integrations.sync();
         BubbleApp.toast('Spotify connected!', 'success');
         return true;
       }

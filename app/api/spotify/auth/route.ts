@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase-server';
 
-const SPOTDL_CLIENT_ID = '5f573c9620494bae87890c0f08a60293';
-const SPOTDL_CLIENT_SECRET = '212476d9b0f3472eaa762d90b19b0ba8';
+export const runtime = 'nodejs';
+
+// spotDL's public client credentials (published in the open-source spotDL
+// project — not secret). Used only as the zero-config default; a signed-in
+// user's own Spotify app creds (stored server-side in user_integrations) win.
+const DEFAULT_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || '5f573c9620494bae87890c0f08a60293';
+const DEFAULT_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || '212476d9b0f3472eaa762d90b19b0ba8';
 
 const SCOPES = [
     'user-read-private',
@@ -15,14 +21,38 @@ const SCOPES = [
     'user-top-read'
 ].join(' ');
 
-function getSpotifyCredentials(request: Request, body?: any) {
-    const headerId = request.headers.get('x-spotify-client-id');
-    const headerSecret = request.headers.get('x-spotify-client-secret');
+// Resolve the Spotify app credentials for this request. Precedence:
+//   1. The signed-in user's own app creds from user_integrations (server-side —
+//      the client SECRET never travels through the browser).
+//   2. A client-supplied client_id (header/body) — the id only, never a secret.
+//   3. Env / public default (id + secret as a matched pair).
+async function getSpotifyCredentials(request: Request, body?: any) {
+    let dbId: string | null = null;
+    let dbSecret: string | null = null;
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data } = await supabase
+                .from('user_integrations')
+                .select('spotify_client_id, spotify_client_secret')
+                .eq('user_id', user.id)
+                .maybeSingle();
+            if (data) {
+                dbId = data.spotify_client_id || null;
+                dbSecret = data.spotify_client_secret || null;
+            }
+        }
+    } catch { /* not signed in / no row — fall through to defaults */ }
 
-    const clientId = headerId || body?.client_id || process.env.SPOTIFY_CLIENT_ID || process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || SPOTDL_CLIENT_ID;
-    const clientSecret = headerSecret || body?.client_secret || process.env.SPOTIFY_CLIENT_SECRET || SPOTDL_CLIENT_SECRET;
-
-    return { clientId, clientSecret };
+    // A custom app's id+secret must come as a matched pair from the DB. We never
+    // trust a client-supplied secret (that was the leak). If the user has no own
+    // app, use their supplied client_id (id is not secret) with the default secret.
+    if (dbId && dbSecret) {
+        return { clientId: dbId, clientSecret: dbSecret };
+    }
+    const clientId = request.headers.get('x-spotify-client-id') || body?.client_id || DEFAULT_CLIENT_ID;
+    return { clientId, clientSecret: DEFAULT_CLIENT_SECRET };
 }
 
 function getDefaultOrigin(request: Request) {
@@ -40,7 +70,7 @@ export async function GET(request: Request) {
     const action = searchParams.get('action') || 'url';
     const defaultOrigin = getDefaultOrigin(request);
     const redirectUri = searchParams.get('redirect_uri') || `${defaultOrigin}/auth/spotify/callback`;
-    const { clientId } = getSpotifyCredentials(request);
+    const { clientId } = await getSpotifyCredentials(request);
 
     if (action === 'url') {
         const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(SCOPES)}&show_dialog=true`;
@@ -54,7 +84,7 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
         const { action = 'exchange', code, redirect_uri, refresh_token } = body;
-        const { clientId, clientSecret } = getSpotifyCredentials(request, body);
+        const { clientId, clientSecret } = await getSpotifyCredentials(request, body);
 
         const authHeader = 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 

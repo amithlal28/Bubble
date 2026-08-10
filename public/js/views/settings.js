@@ -13,7 +13,8 @@ BubbleRouter.register('settings', async (container) => {
   const arcodConnected = arcodStatus.connected;
   const stashKeyConfigured = arcodStatus.stashKeyConfigured;
   const disableLossless = settings['disable_lossless'] === 'true' || settings['prefer_source'] === 'youtube';
-  const allowYouTubeStream = settings['allow_youtube_stream'] !== 'false';
+  // Strict lossless by default: fallback is opt-in (must be explicitly 'true').
+  const allowYouTubeStream = settings['allow_youtube_stream'] === 'true';
   const downloadDir = settings['download_dir'] || 'Music/Stash';
   const appVersion = (typeof stash !== 'undefined' ? await stash.app.getVersion().catch(() => '1.0.0') : '1.0.0-web');
   const currentEQPreset = settings['eq_preset'] || 'flat';

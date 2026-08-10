@@ -247,12 +247,25 @@ CREATE TABLE IF NOT EXISTS user_integrations (
   spotify_token_expiry BIGINT,
   spotify_client_id TEXT,
   spotify_client_secret TEXT,
+  spotify_cookie TEXT,
   arcod_token TEXT,
+  arcod_refresh_token TEXT,
+  arcod_token_expiry BIGINT,
+  arcod_stashkey TEXT,
   youtube_token TEXT,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Idempotent column adds for existing deployments (safe to re-run).
+ALTER TABLE user_integrations ADD COLUMN IF NOT EXISTS spotify_cookie TEXT;
+ALTER TABLE user_integrations ADD COLUMN IF NOT EXISTS arcod_refresh_token TEXT;
+ALTER TABLE user_integrations ADD COLUMN IF NOT EXISTS arcod_token_expiry BIGINT;
+ALTER TABLE user_integrations ADD COLUMN IF NOT EXISTS arcod_stashkey TEXT;
+
 ALTER TABLE user_integrations ENABLE ROW LEVEL SECURITY;
+
+-- Realtime: broadcast row changes so connect/disconnect propagates across devices.
+ALTER TABLE user_integrations REPLICA IDENTITY FULL;
 
 DROP POLICY IF EXISTS "Users can CRUD own integrations" ON user_integrations;
 CREATE POLICY "Users can CRUD own integrations" ON user_integrations

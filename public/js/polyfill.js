@@ -38,25 +38,65 @@
         return null;
     }
 
+    // Push ONLY the connections this device actually has. A field that is absent
+    // locally is omitted from the payload; the POST route leaves omitted columns
+    // untouched, so a device that only has ARCOD never wipes another device's
+    // Spotify. Two consequences that matter:
+    //   • We never send spotify_client_secret:null. The secret is set up once on
+    //     the device that entered it (where it IS in localStorage) and pushed from
+    //     there; other devices never hydrate it, so they simply omit it.
+    //   • Disconnect is a separate, explicit DELETE (deleteIntegrationOnServer) —
+    //     clearing a service is never expressed as a null pushed from here.
     async function syncIntegrationsToServer() {
         if (!window.BubbleAPI || !window.BubbleAPI.auth || !window.BubbleAPI.auth.isSignedIn()) return;
+        const payload = {};
+        const put = (field, lsKey) => {
+            const v = localStorage.getItem(lsKey);
+            if (v !== null && v !== '') payload[field] = v;
+        };
+        put('spotify_access_token', 'creds_spotify_token');
+        put('spotify_refresh_token', 'creds_spotify_refresh_token');
+        put('spotify_token_expiry', 'creds_spotify_token_expiry');
+        put('spotify_client_id', 'creds_spotify_client_id');
+        put('spotify_client_secret', 'creds_spotify_client_secret');
+        put('spotify_cookie', 'creds_spotify_cookie');
+        put('arcod_token', 'creds_arcod_token');
+        put('arcod_stashkey', 'creds_arcod_stashkey');
+        put('youtube_token', 'creds_youtube_cookie');
+
+        // ARCOD refresh token + expiry live inside the session blob, not their own
+        // creds_ keys. Pull them out so a second device can refresh the token on
+        // its own and stay connected indefinitely.
+        try {
+            const sess = JSON.parse(localStorage.getItem('creds_arcod_session') || 'null');
+            if (sess) {
+                if (sess.refreshToken) payload.arcod_refresh_token = sess.refreshToken;
+                if (sess.expiresAt) payload.arcod_token_expiry = sess.expiresAt;
+                if (sess.accessToken && !payload.arcod_token) payload.arcod_token = sess.accessToken;
+            }
+        } catch (e) { }
+
+        if (Object.keys(payload).length === 0) return; // nothing connected — don't touch the row
         try {
             await fetch('/api/integrations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    spotify_access_token: localStorage.getItem('creds_spotify_token'),
-                    spotify_refresh_token: localStorage.getItem('creds_spotify_refresh_token'),
-                    spotify_token_expiry: localStorage.getItem('creds_spotify_token_expiry'),
-                    spotify_client_id: localStorage.getItem('creds_spotify_client_id'),
-                    spotify_client_secret: localStorage.getItem('creds_spotify_client_secret'),
-                    spotify_cookie: localStorage.getItem('creds_spotify_cookie'),
-                    arcod_token: localStorage.getItem('creds_arcod_token'),
-                    youtube_token: localStorage.getItem('creds_youtube_cookie')
-                })
+                body: JSON.stringify(payload)
             });
         } catch (e) {
             console.error('Failed to sync integrations', e);
+        }
+    }
+
+    // Disconnect a service everywhere: null its columns server-side so Supabase
+    // Realtime pushes the removal to every other logged-in device. Local creds
+    // are cleared by the caller; the server DELETE is what makes it cross-device.
+    async function deleteIntegrationOnServer(service) {
+        if (!window.BubbleAPI || !window.BubbleAPI.auth || !window.BubbleAPI.auth.isSignedIn()) return;
+        try {
+            await fetch('/api/integrations?service=' + encodeURIComponent(service), { method: 'DELETE' });
+        } catch (e) {
+            console.error('Failed to disconnect integration on server', e);
         }
     }
 
@@ -73,7 +113,7 @@
         localStorage.removeItem('creds_arcod_session');
         localStorage.removeItem('creds_arcod_token');
         localStorage.removeItem('creds_arcod_stashkey');
-        syncIntegrationsToServer();
+        deleteIntegrationOnServer('arcod');
     }
 
     // Interactive In-Web ARCOD Login Modal
@@ -633,6 +673,9 @@
                             if (refreshData.expires_in) {
                                 localStorage.setItem('creds_spotify_token_expiry', String(Date.now() + refreshData.expires_in * 1000));
                             }
+                            // Push the refreshed token so other devices don't re-refresh
+                            // with a possibly-rotated refresh token and get locked out.
+                            syncIntegrationsToServer();
                         }
                     } catch (e) {
                         console.warn('[Spotify] Failed to refresh token:', e);
@@ -651,7 +694,7 @@
                 localStorage.removeItem('creds_spotify_token_expiry');
                 localStorage.removeItem('creds_spotify_cookie');
                 if (window.BubbleSpotify) window.BubbleSpotify.connected = false;
-                syncIntegrationsToServer();
+                deleteIntegrationOnServer('spotify');
                 return true;
             },
 
@@ -787,6 +830,7 @@
                 const cookie = prompt('Paste your YouTube Music cookie:\n\n1. Go to music.youtube.com and log in\n2. Open DevTools (F12) → Application → Cookies\n3. Copy the cookie header value\n4. Paste it here:');
                 if (cookie && cookie.trim()) {
                     localStorage.setItem('creds_youtube_cookie', cookie.trim());
+                    syncIntegrationsToServer();
                     return { success: true };
                 }
                 throw new Error('Cookie required');
@@ -833,9 +877,14 @@
                     }
                     const stashKey = localStorage.getItem('creds_arcod_stashkey') || '';
                     const disableLossless = (await BubbleSettings.get('disable_lossless')) === 'true' || (await BubbleSettings.get('prefer_source')) === 'youtube';
+                    // Strict lossless by default: fallback is opt-in. It only
+                    // runs when the user explicitly enabled it, OR when lossless
+                    // was deliberately disabled (then fallback is the whole point).
+                    const allowFallback = disableLossless || (await BubbleSettings.get('allow_youtube_stream')) === 'true';
                     const headers = {
                         'Content-Type': 'application/json',
-                        'x-disable-lossless': disableLossless ? 'true' : 'false'
+                        'x-disable-lossless': disableLossless ? 'true' : 'false',
+                        'x-allow-fallback': allowFallback ? 'true' : 'false'
                     };
 
                     if (session?.accessToken) {
@@ -848,14 +897,20 @@
                     const res = await fetch('/api/stream/resolve', {
                         method: 'POST',
                         headers,
-                        body: JSON.stringify({ track, disableLossless }),
+                        body: JSON.stringify({ track, disableLossless, allowFallback }),
                     });
 
                     if (res.ok) {
                         const data = await res.json();
-                        const allowYT = (await BubbleSettings.get('allow_youtube_stream')) !== 'false';
-                        if (!allowYT && data.source === 'youtube' && !disableLossless) {
-                            return { error: 'youtube_disabled' };
+                        // Server tells us when there is no lossless source and
+                        // fallback is off/failed — surface the reason and skip.
+                        if (data.error === 'lossless_only') {
+                            return { error: 'lossless_only', reason: data.reason };
+                        }
+                        // Belt-and-suspenders: never hand back a non-lossless URL
+                        // when fallback is disabled.
+                        if (!allowFallback && data.source && data.source !== 'arcod') {
+                            return { error: 'lossless_only', reason: 'No lossless source for this track' };
                         }
                         if (data.url) return data;
                     } else {
@@ -1066,8 +1121,18 @@
             setStashKey: async (key) => {
                 if (key && key.trim()) {
                     localStorage.setItem('creds_arcod_stashkey', key.trim());
+                    syncIntegrationsToServer();
                 } else {
                     localStorage.removeItem('creds_arcod_stashkey');
+                    // Clearing one optional field: sync omits empties, so null it
+                    // explicitly (ARCOD itself stays connected via its token).
+                    if (window.BubbleAPI?.auth?.isSignedIn()) {
+                        fetch('/api/integrations', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ arcod_stashkey: null })
+                        }).catch(() => { });
+                    }
                 }
                 return { success: true };
             },
@@ -1084,6 +1149,15 @@
                 } catch (e) { }
                 return [];
             },
+        },
+
+        /* ── Cross-device integration sync ───────────────────────────── */
+        // Exposed so the separate spotify.js / youtube.js modules can push a
+        // freshly-connected service to the server (sync) or clear it everywhere
+        // (disconnect). ARCOD wiring calls the in-closure helpers directly.
+        integrations: {
+            sync: () => syncIntegrationsToServer(),
+            disconnect: (service) => deleteIntegrationOnServer(service),
         },
     };
 

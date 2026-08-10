@@ -24,6 +24,7 @@ window.BubbleYouTube = (() => {
   async function loginWithCookie(cookie) {
     if (!cookie || !cookie.trim()) { BubbleApp.toast('Please enter a valid cookie', 'error'); return false; }
     await stash.credentials.save({ youtube_cookie: cookie.trim() });
+    if (stash.integrations) stash.integrations.sync();
     connected = true;
     BubbleApp.toast('YouTube Music connected!', 'success');
     return true;
@@ -31,6 +32,7 @@ window.BubbleYouTube = (() => {
 
   async function disconnect() {
     await stash.credentials.remove('youtube_cookie');
+    if (stash.integrations) stash.integrations.disconnect('youtube');
     connected = false;
     BubbleApp.toast('YouTube Music disconnected', 'info');
   }

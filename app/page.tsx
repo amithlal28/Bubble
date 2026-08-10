@@ -9,28 +9,78 @@ export default function HomePage() {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        // Write one credential key, clearing it when the server value is null/empty.
+        const setOrClear = (key: string, val: any) => {
+            if (val === null || val === undefined || val === '') localStorage.removeItem(key);
+            else localStorage.setItem(key, String(val));
+        };
+
+        // Mirror the server's user_integrations row into the localStorage creds
+        // the vanilla engine reads. The Spotify client_secret is deliberately
+        // never hydrated — it stays server-side (see /api/integrations GET).
+        const hydrateCreds = (data: any) => {
+            data = data || {};
+            setOrClear('creds_spotify_token', data.spotify_access_token);
+            setOrClear('creds_spotify_refresh_token', data.spotify_refresh_token);
+            setOrClear('creds_spotify_token_expiry', data.spotify_token_expiry);
+            setOrClear('creds_spotify_cookie', data.spotify_cookie);
+            setOrClear('creds_spotify_client_id', data.spotify_client_id);
+
+            // ARCOD: rebuild the full session object so any device can refresh.
+            setOrClear('creds_arcod_token', data.arcod_token);
+            setOrClear('creds_arcod_stashkey', data.arcod_stashkey);
+            if (data.arcod_token) {
+                localStorage.setItem('creds_arcod_session', JSON.stringify({
+                    accessToken: data.arcod_token,
+                    refreshToken: data.arcod_refresh_token || '',
+                    expiresAt: data.arcod_token_expiry ? Number(data.arcod_token_expiry) : null,
+                    userEmail: 'Connected Account',
+                }));
+            } else {
+                localStorage.removeItem('creds_arcod_session');
+            }
+
+            setOrClear('creds_youtube_cookie', data.youtube_token);
+
+            // Let the engine refresh any connection UI (settings badges, etc.).
+            window.dispatchEvent(new CustomEvent('bubble:integrationsChanged'));
+        };
+
+        // Always read through the GET endpoint (which strips secrets) rather than
+        // trusting a realtime payload — realtime is only used as a change signal.
+        const applyIntegrations = async () => {
+            try {
+                const res = await fetch('/api/integrations');
+                if (res.ok) hydrateCreds(await res.json());
+            } catch (e) {
+                console.error('Failed to load integrations', e);
+            }
+        };
+
         // Dynamic import to avoid SSR issues with Supabase client
         import('@/lib/supabase-browser').then(({ createClient }) => {
             const supabase = createClient();
             (window as any).__bubbleSupabase = supabase;
+            let integrationsChannel: any = null;
 
             supabase.auth.getSession().then(async ({ data: { session } }) => {
                 if (session?.user) {
+                    await applyIntegrations();
+
+                    // Live cross-device propagation: when this user's integrations
+                    // row changes on ANY device, re-hydrate here. Connect on device
+                    // A → appears on B; disconnect on A → cleared on B.
                     try {
-                        const res = await fetch('/api/integrations');
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data.spotify_access_token) localStorage.setItem('creds_spotify_token', data.spotify_access_token);
-                            if (data.spotify_refresh_token) localStorage.setItem('creds_spotify_refresh_token', data.spotify_refresh_token);
-                            if (data.spotify_token_expiry) localStorage.setItem('creds_spotify_token_expiry', data.spotify_token_expiry);
-                            if (data.spotify_cookie) localStorage.setItem('creds_spotify_cookie', data.spotify_cookie);
-                            if (data.spotify_client_id) localStorage.setItem('creds_spotify_client_id', data.spotify_client_id);
-                            if (data.spotify_client_secret) localStorage.setItem('creds_spotify_client_secret', data.spotify_client_secret);
-                            if (data.arcod_token) localStorage.setItem('creds_arcod_token', data.arcod_token);
-                            if (data.youtube_token) localStorage.setItem('creds_youtube_cookie', data.youtube_token);
-                        }
+                        integrationsChannel = supabase
+                            .channel('integrations:' + session.user.id)
+                            .on('postgres_changes', {
+                                event: '*', schema: 'public', table: 'user_integrations',
+                                filter: `user_id=eq.${session.user.id}`,
+                            }, () => { applyIntegrations(); })
+                            .subscribe();
+                        (window as any).__bubbleIntegrationsChannel = integrationsChannel;
                     } catch (e) {
-                        console.error('Failed to load integrations', e);
+                        console.warn('[Bubble Web] Realtime subscribe failed:', e);
                     }
                 }
 

@@ -32,6 +32,11 @@ window.BubblePlayer = (() => {
   let volume = 0.8;
   let seekInterval = null;
 
+  // Skip-storm guard: after too many back-to-back failures, stop auto-advancing
+  // so a bad queue (or an outage) can't thrash the whole UI.
+  let consecutiveFailures = 0;
+  const MAX_CONSECUTIVE_FAILURES = 3;
+
   // Pre-fetched stream URLs (keyed by track id): { url, source, quality, fetchedAt }
   const prefetchedUrls = new Map();
 
@@ -204,14 +209,22 @@ window.BubblePlayer = (() => {
             track.stream_url = streamInfo.url;
             if (streamInfo.quality) track.quality = streamInfo.quality;
             if (streamInfo.source) track.source = streamInfo.source;
+            // Lossless-first: if we got a non-ARCOD source, this is a fallback —
+            // tell the user (per the "notify on fallback" requirement).
+            if (streamInfo.source && streamInfo.source !== 'arcod' && streamInfo.source !== 'local') {
+              const label = streamInfo.source === 'soundcloud' ? 'SoundCloud' : 'YouTube';
+              if (window.BubbleApp?.toast) {
+                BubbleApp.toast(`Lossless unavailable — playing ${label} fallback`, 'warning');
+              }
+            }
             prefetchedUrls.set(track.id, {
               url: streamInfo.url,
               source: streamInfo.source,
               quality: streamInfo.quality,
               fetchedAt: Date.now()
             });
-          } else if (streamInfo?.error === 'youtube_disabled') {
-            handlePlaybackError(track, 'Strict Lossless Mode: Track not available in Lossless', false);
+          } else if (streamInfo?.error === 'lossless_only') {
+            handlePlaybackError(track, streamInfo.reason || 'No lossless source for this track', false);
             return;
           } else {
             handlePlaybackError(track, 'No playable stream found', !isRetry);
@@ -265,6 +278,7 @@ window.BubblePlayer = (() => {
       }
       isPlaying = true;
       isLoading = false;
+      consecutiveFailures = 0; // a successful play clears the skip-storm guard
       resetSwitchGuard();
       currentTrack = track;
       emit('play', { track: currentTrack });
@@ -360,8 +374,19 @@ window.BubblePlayer = (() => {
     resetSwitchGuard();
     isLoading = false;
     isPlaying = false;
-    console.error(`[BubblePlayer] ${message} for "${track?.title}"`);
+    consecutiveFailures++;
+    console.error(`[BubblePlayer] ${message} for "${track?.title}" (failure ${consecutiveFailures})`);
     emit('trackChange', { track, error: message });
+
+    // Too many back-to-back failures: stop the auto-skip storm and surface one
+    // clear message instead of racing through the whole queue.
+    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      if (window.BubbleApp?.toast) {
+        BubbleApp.toast(`Playback stopped after ${consecutiveFailures} tracks couldn't be played. Check your connection or ARCOD setup.`, 'error');
+      }
+      console.warn('[BubblePlayer] Skip-storm guard tripped — halting auto-advance.');
+      return;
+    }
 
     if (window.BubbleApp?.toast) {
       BubbleApp.toast(`${message}: ${track?.title || 'track'}`, 'warning');
@@ -378,7 +403,9 @@ window.BubblePlayer = (() => {
   /** Background pre-fetch: resolve the next queue tracks' URLs (up to 2) sequentially */
   async function prefetchNextTrack() {
     if (repeatMode === 'one') return;
-    
+    // Don't pile slow resolver requests while things are already failing.
+    if (consecutiveFailures > 0) return;
+
     // Fetch up to next 2 tracks sequentially to avoid backend rate-limits (lossless APIs)
     for (let i = 1; i <= 2; i++) {
       let nextIdx = queueIndex + i;
@@ -525,6 +552,7 @@ window.BubblePlayer = (() => {
     }
 
     const wasEmpty = queue.length === 0;
+    consecutiveFailures = 0; // explicit user pick — clear the skip-storm guard
     const existing = queue.findIndex(t => t.id === track.id);
     if (existing >= 0) {
       queueIndex = existing;
@@ -628,6 +656,7 @@ window.BubblePlayer = (() => {
   function setQueue(tracks, startIndex = 0, startShuffled = false) {
     const rawList = Array.isArray(tracks) ? [...tracks] : [];
     originalQueue = [...rawList];
+    consecutiveFailures = 0; // fresh user intent — clear the skip-storm guard
 
     if (startShuffled) {
       isShuffle = true;

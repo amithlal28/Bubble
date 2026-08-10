@@ -328,6 +328,25 @@ window.BubbleAPI = (() => {
                     }, 500);
                 }
             });
+
+            // The Next.js wrapper fires this after it hydrates creds_* from the
+            // server (initial load AND every Supabase Realtime change). Refresh the
+            // in-memory connection flags so a connect/disconnect on another device
+            // is reflected here without a manual reload.
+            window.addEventListener('bubble:integrationsChanged', function () {
+                Promise.resolve()
+                    .then(function () { return typeof BubbleSpotify !== 'undefined' && BubbleSpotify.checkConnection ? BubbleSpotify.checkConnection() : null; })
+                    .then(function () { return typeof BubbleYouTube !== 'undefined' && BubbleYouTube.checkConnection ? BubbleYouTube.checkConnection() : null; })
+                    .catch(function () { })
+                    .finally(function () {
+                        // Re-render Settings only if it's the current view, so the
+                        // account badges update live without yanking the user around.
+                        var view = (location.hash || '').replace(/^#/, '').split('?')[0];
+                        if (view === 'settings' && typeof BubbleRouter !== 'undefined' && BubbleRouter.navigate) {
+                            BubbleRouter.navigate('settings', { force: true });
+                        }
+                    });
+            });
         }
     }
 

@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateStreamUrl } from '@/lib/stream-guard';
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
+// Same fail-closed key the proxy uses, for ARCOD direct-stream downloads.
+const ARCOD_STASH_KEY = process.env.ARCOD_STASH_KEY || '';
 
 function sanitizeFilename(name: string): string {
     return name.replace(/[\\/:*?"<>|]/g, '_').trim();
+}
+
+// The client hands us stream URLs already wrapped as /api/stream/proxy?url=...
+// (same-origin). Recover the real upstream URL so we can validate + fetch it.
+function unwrapProxyUrl(raw: string): string {
+    if (raw.includes('/api/stream/proxy')) {
+        try {
+            const inner = new URL(raw, 'http://internal').searchParams.get('url');
+            if (inner) return inner;
+        } catch { /* fall through — validate the raw value instead */ }
+    }
+    return raw;
 }
 
 /**
@@ -10,22 +29,35 @@ function sanitizeFilename(name: string): string {
  */
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
-    const audioUrl = searchParams.get('url');
+    const rawUrl = searchParams.get('url');
     const title = searchParams.get('title') || 'Track';
     const artist = searchParams.get('artist') || 'Unknown Artist';
     const format = searchParams.get('format') || 'flac';
 
-    if (!audioUrl) {
+    if (!rawUrl) {
         return NextResponse.json({ error: 'Missing audio URL parameter' }, { status: 400 });
     }
 
+    // SSRF guard: only https URLs pointing at known audio hosts are fetched.
+    const guard = validateStreamUrl(unwrapProxyUrl(rawUrl));
+    if (!guard.ok) {
+        return NextResponse.json({ error: `Blocked URL: ${guard.reason}` }, { status: 400 });
+    }
+    const audioUrl = guard.url;
+
     try {
-        const upstream = await fetch(audioUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-            },
-        });
+        const upstreamHeaders: Record<string, string> = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+        };
+        // ARCOD direct streams (not R2/S3 storage) require origin + stash auth.
+        if (audioUrl.includes('arcod.xyz') && !audioUrl.includes('cloudflarestorage.com')) {
+            upstreamHeaders['Origin'] = 'https://arcod.xyz';
+            upstreamHeaders['Referer'] = 'https://arcod.xyz/';
+            if (ARCOD_STASH_KEY) upstreamHeaders['X-Stash-Key'] = ARCOD_STASH_KEY;
+        }
+
+        const upstream = await fetch(audioUrl, { headers: upstreamHeaders });
 
         if (!upstream.ok || !upstream.body) {
             return NextResponse.json(

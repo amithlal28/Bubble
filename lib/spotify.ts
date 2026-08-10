@@ -1,8 +1,10 @@
 import crypto from 'crypto';
 
-/* ── Spotify Official Client Credentials Flow (Zero-Auth / Public Data) ── */
-const SPOTDL_CLIENT_ID = '5f573c9620494bae87890c0f08a60293';
-const SPOTDL_CLIENT_SECRET = '212476d9b0f3472eaa762d90b19b0ba8';
+/* ── Spotify Official Client Credentials Flow (Zero-Auth / Public Data) ──
+   spotDL's public client credentials (published in the open-source spotDL
+   project — not secret). Override via env for a dedicated app. */
+const SPOTDL_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || '5f573c9620494bae87890c0f08a60293';
+const SPOTDL_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || '212476d9b0f3472eaa762d90b19b0ba8';
 let cachedSpotifyPublicToken: string | null = null;
 let cachedSpotifyPublicTokenExpiry = 0;
 
